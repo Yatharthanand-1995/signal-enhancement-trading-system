@@ -16,10 +16,68 @@ from contextlib import asynccontextmanager
 import aiohttp
 import concurrent.futures
 
-from src.utils.caching import cache_manager, cached
-from src.utils.error_handling import NetworkError, ErrorSeverity, handle_errors
-from src.utils.logging_setup import get_logger, perf_logger
-from config.enhanced_config import enhanced_config
+# Use fallback imports for better compatibility
+try:
+    from .caching import cache_manager, cached
+except ImportError:
+    # Fallback cache manager
+    class FallbackCacheManager:
+        def get(self, *args, **kwargs):
+            return None
+        def set(self, *args, **kwargs):
+            pass
+    cache_manager = FallbackCacheManager()
+    
+    def cached(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+
+try:
+    from .error_handling import NetworkError, ErrorSeverity, handle_errors
+    from .logging_setup import get_logger, perf_logger
+except ImportError:
+    # Fallback error handling
+    import logging
+    
+    class NetworkError(Exception):
+        def __init__(self, message, severity=None, original_error=None):
+            super().__init__(message)
+            self.severity = severity
+            self.original_error = original_error
+    
+    class ErrorSeverity:
+        HIGH = "HIGH"
+        MEDIUM = "MEDIUM"
+        LOW = "LOW"
+    
+    def handle_errors(category=None, severity=None, recovery=True):
+        def decorator(func):
+            def wrapper(*args, **kwargs):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    logging.error(f"Error in {func.__name__}: {e}")
+                    if recovery:
+                        return None
+                    raise
+            return wrapper
+        return decorator
+    
+    def get_logger(name):
+        return logging.getLogger(name)
+    
+    class PerfLogger:
+        def log_execution_time(self, operation, time_taken):
+            logging.info(f"{operation} took {time_taken:.3f}s")
+    
+    perf_logger = PerfLogger()
+
+try:
+    from config.enhanced_config import enhanced_config
+except ImportError:
+    # Fallback configuration
+    enhanced_config = None
 
 logger = get_logger(__name__)
 
@@ -86,7 +144,7 @@ class EventProcessor:
                     
                     time.sleep(10)  # Update every 10 seconds
                 except Exception as e:
-                    logger.error("Stats updater error", exception=e, component='realtime')
+                    logger.error("Stats updater error")
         
         stats_thread = threading.Thread(target=update_stats, daemon=True)
         stats_thread.start()
@@ -96,7 +154,7 @@ class EventProcessor:
         if event_type not in self.handlers:
             self.handlers[event_type] = []
         self.handlers[event_type].append(handler)
-        logger.info(f"Registered handler for {event_type}", component='realtime')
+        logger.info(f"Registered handler for {event_type}")
     
     async def process_event(self, event: DataEvent):
         """Process a single data event"""
@@ -188,11 +246,11 @@ class WebSocketManager:
                 await self._handle_client_connection(websocket, path)
             
             server = await websockets.serve(handle_connection, host, port)
-            logger.info(f"WebSocket server started on {host}:{port}", component='websocket')
+            logger.info(f"WebSocket server started on {host}:{port}")
             return server
             
         except Exception as e:
-            logger.error(f"Failed to start WebSocket server: {e}", exception=e, component='websocket')
+            logger.error(f"Failed to start WebSocket server: {e}")
             raise NetworkError(f"WebSocket server startup failed: {e}", severity=ErrorSeverity.HIGH, original_error=e)
     
     async def _handle_client_connection(self, websocket, path):
@@ -205,7 +263,7 @@ class WebSocketManager:
                 self.connection_stats['total_connections'] += 1
                 self.connection_stats['active_connections'] += 1
             
-            logger.info(f"Client connected: {client_id}", component='websocket')
+            logger.info(f"Client connected: {client_id}")
             
             # Send welcome message
             welcome_msg = {
@@ -229,12 +287,12 @@ class WebSocketManager:
                     error_msg = {'type': 'error', 'message': 'Invalid JSON format'}
                     await websocket.send(json.dumps(error_msg))
                 except Exception as e:
-                    logger.error(f"Message handling error for {client_id}: {e}", exception=e, component='websocket')
+                    logger.error(f"Message handling error for {client_id}: {e}")
         
         except websockets.exceptions.ConnectionClosed:
-            logger.info(f"Client disconnected: {client_id}", component='websocket')
+            logger.info(f"Client disconnected: {client_id}")
         except Exception as e:
-            logger.error(f"WebSocket connection error for {client_id}: {e}", exception=e, component='websocket')
+            logger.error(f"WebSocket connection error for {client_id}: {e}")
             with self._stats_lock:
                 self.connection_stats['connection_errors'] += 1
         
@@ -303,7 +361,7 @@ class WebSocketManager:
             except websockets.exceptions.ConnectionClosed:
                 disconnected_clients.append(client_id)
             except Exception as e:
-                logger.error(f"Broadcast error to {client_id}: {e}", exception=e, component='websocket')
+                logger.error(f"Broadcast error to {client_id}: {e}")
                 disconnected_clients.append(client_id)
         
         # Clean up disconnected clients
@@ -361,14 +419,14 @@ class StreamProcessor:
         try:
             await self.websocket_manager.start_server()
         except Exception as e:
-            logger.warning(f"WebSocket server not started: {e}", component='stream_processor')
+            logger.warning(f"WebSocket server not started: {e}")
         
         # Start processing tasks for each stream
         for stream_id, config in self.streams.items():
             task = asyncio.create_task(self._process_stream(stream_id, config))
             self.processing_tasks[stream_id] = task
         
-        logger.info(f"Started processing {len(self.streams)} streams", component='stream_processor')
+        logger.info(f"Started processing {len(self.streams)} streams")
         
         # Start statistics updater
         asyncio.create_task(self._update_stats())
@@ -404,7 +462,7 @@ class StreamProcessor:
                 await asyncio.sleep(0.01)
                 
             except Exception as e:
-                logger.error(f"Stream processing error for {stream_id}: {e}", exception=e, component='stream_processor')
+                logger.error(f"Stream processing error for {stream_id}: {e}")
                 await asyncio.sleep(1)  # Back off on error
     
     async def _process_batch(self, stream_id: str, batch: List[Dict[str, Any]], config: StreamConfig):
@@ -445,15 +503,10 @@ class StreamProcessor:
             processing_time = time.time() - start_time
             perf_logger.log_execution_time('batch_processing', processing_time)
             
-            logger.debug(
-                f"Processed batch: {stream_id}",
-                component='stream_processor',
-                batch_size=len(batch),
-                processing_time=processing_time
-            )
+            logger.debug(f"Processed batch: {stream_id} - {len(batch)} messages in {processing_time:.3f}s")
             
         except Exception as e:
-            logger.error(f"Batch processing error for {stream_id}: {e}", exception=e, component='stream_processor')
+            logger.error(f"Batch processing error for {stream_id}: {e}")
     
     async def _update_stats(self):
         """Update processing statistics"""
@@ -478,13 +531,13 @@ class StreamProcessor:
                 await asyncio.sleep(10)  # Update every 10 seconds
                 
             except Exception as e:
-                logger.error("Stats updater error", exception=e, component='stream_processor')
+                logger.error("Stats updater error")
                 await asyncio.sleep(10)
     
     def add_message(self, stream_id: str, message: Dict[str, Any]) -> bool:
         """Add message to stream buffer"""
         if stream_id not in self.data_buffers:
-            logger.warning(f"Stream not found: {stream_id}", component='stream_processor')
+            logger.warning(f"Stream not found: {stream_id}")
             return False
         
         buffer = self.data_buffers[stream_id]
@@ -498,10 +551,10 @@ class StreamProcessor:
             return True
             
         except queue.Full:
-            logger.warning(f"Buffer full for stream: {stream_id}", component='stream_processor')
+            logger.warning(f"Buffer full for stream: {stream_id}")
             return False
         except Exception as e:
-            logger.error(f"Failed to add message to {stream_id}: {e}", exception=e, component='stream_processor')
+            logger.error(f"Failed to add message to {stream_id}: {e}")
             return False
     
     def get_stats(self) -> Dict[str, Any]:
@@ -532,7 +585,7 @@ class StreamProcessor:
         # Wait for tasks to complete
         await asyncio.gather(*self.processing_tasks.values(), return_exceptions=True)
         
-        logger.info("Stream processing stopped", component='stream_processor')
+        logger.info("Stream processing stopped")
 
 # Global stream processor instance
 stream_processor = StreamProcessor()

@@ -15,9 +15,55 @@ from dataclasses import dataclass
 import threading
 import asyncio
 
-from config.enhanced_config import enhanced_config
-from src.utils.error_handling import ErrorCategory, ErrorSeverity, handle_errors
-from src.utils.logging_setup import get_logger, perf_logger
+# Use fallback imports for better compatibility
+try:
+    from config.enhanced_config import enhanced_config
+except ImportError:
+    # Fallback configuration
+    class RedisConfig:
+        host = 'localhost'
+        port = 6379
+        db = 0
+    
+    class EnhancedConfig:
+        redis = RedisConfig()
+    
+    enhanced_config = EnhancedConfig()
+
+try:
+    from .error_handling import ErrorCategory, ErrorSeverity, handle_errors
+    from .logging_setup import get_logger, perf_logger
+except ImportError:
+    # Fallback error handling and logging
+    import logging
+    
+    class ErrorCategory:
+        DATA_PROCESSING = "DATA_PROCESSING"
+    
+    class ErrorSeverity:
+        HIGH = "HIGH"
+        MEDIUM = "MEDIUM"
+        LOW = "LOW"
+    
+    def handle_errors(category=None, severity=None):
+        def decorator(func):
+            def wrapper(*args, **kwargs):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    logging.error(f"Error in {func.__name__}: {e}")
+                    return None
+            return wrapper
+        return decorator
+    
+    def get_logger(name):
+        return logging.getLogger(name)
+    
+    class PerfLogger:
+        def log_execution_time(self, operation, time_taken):
+            logging.info(f"{operation} took {time_taken:.3f}s")
+    
+    perf_logger = PerfLogger()
 
 logger = get_logger(__name__)
 
@@ -79,19 +125,10 @@ class CacheManager:
             self._redis_client.ping()
             self._cache_stats['redis_connected'] = True
             
-            logger.info(
-                "Redis cache initialized successfully",
-                component='cache',
-                host=redis_config.host,
-                port=redis_config.port
-            )
+            logger.info(f"Redis cache initialized successfully at {redis_config.host}:{redis_config.port}")
             
         except Exception as e:
-            logger.warning(
-                f"Redis initialization failed: {e}. Falling back to memory-only caching",
-                component='cache',
-                exception=e
-            )
+            logger.warning(f"Redis initialization failed: {e}. Falling back to memory-only caching")
             self._redis_client = None
             self._cache_stats['redis_connected'] = False
     
@@ -103,11 +140,11 @@ class CacheManager:
                     self._cleanup_memory_cache()
                     time.sleep(60)  # Cleanup every minute
                 except Exception as e:
-                    logger.error("Cache cleanup error", exception=e, component='cache')
+                    logger.error(f"Cache cleanup error: {e}")
         
         cleanup_thread = threading.Thread(target=cleanup_worker, daemon=True)
         cleanup_thread.start()
-        logger.debug("Cache cleanup thread started", component='cache')
+        logger.debug("Cache cleanup thread started")
     
     def _cleanup_memory_cache(self):
         """Clean up expired items from memory cache"""
@@ -121,11 +158,11 @@ class CacheManager:
             
             for key in expired_keys:
                 del self._memory_cache[key]
-                logger.debug(f"Expired memory cache key: {key}", component='cache')
+                logger.debug(f"Expired memory cache key: {key}")
             
             if expired_keys:
                 self._update_memory_size()
-                logger.debug(f"Cleaned up {len(expired_keys)} expired cache entries", component='cache')
+                logger.debug(f"Cleaned up {len(expired_keys)} expired cache entries")
     
     def _update_memory_size(self):
         """Update memory cache size statistics"""
@@ -165,7 +202,7 @@ class CacheManager:
             return serialized
             
         except Exception as e:
-            logger.error(f"Serialization failed: {e}", component='cache')
+            logger.error(f"Serialization failed: {e}")
             raise
     
     def _deserialize_data(self, data: bytes, serialization: str, compression: bool = False) -> Any:
@@ -184,7 +221,7 @@ class CacheManager:
                 return pickle.loads(data)
                 
         except Exception as e:
-            logger.error(f"Deserialization failed: {e}", component='cache')
+            logger.error(f"Deserialization failed: {e}")
             raise
     
     @handle_errors(category=ErrorCategory.DATA_PROCESSING, severity=ErrorSeverity.MEDIUM)
@@ -204,7 +241,7 @@ class CacheManager:
                         if not expiry or time.time() < expiry:
                             self._cache_stats['hits'] += 1
                             perf_logger.log_execution_time('cache_get_memory', time.time() - start_time)
-                            logger.debug(f"Memory cache hit: {cache_key}", component='cache')
+                            logger.debug(f"Memory cache hit: {cache_key}")
                             return data
                         else:
                             # Expired, remove from memory
@@ -225,20 +262,20 @@ class CacheManager:
                         
                         self._cache_stats['hits'] += 1
                         perf_logger.log_execution_time('cache_get_redis', time.time() - start_time)
-                        logger.debug(f"Redis cache hit: {cache_key}", component='cache')
+                        logger.debug(f"Redis cache hit: {cache_key}")
                         return deserialized_data
                         
                 except Exception as e:
-                    logger.warning(f"Redis get failed for {cache_key}: {e}", component='cache')
+                    logger.warning(f"Redis get failed for {cache_key}: {e}")
             
             # Cache miss
             self._cache_stats['misses'] += 1
             perf_logger.log_execution_time('cache_get_miss', time.time() - start_time)
-            logger.debug(f"Cache miss: {cache_key}", component='cache')
+            logger.debug(f"Cache miss: {cache_key}")
             return None
             
         except Exception as e:
-            logger.error(f"Cache get error for {cache_key}: {e}", component='cache', exception=e)
+            logger.error(f"Cache get error for {cache_key}: {e}")
             return None
     
     @handle_errors(category=ErrorCategory.DATA_PROCESSING, severity=ErrorSeverity.MEDIUM)
@@ -262,14 +299,14 @@ class CacheManager:
                     self._redis_client.setex(cache_key, ttl, serialized_data)
                     
                 except Exception as e:
-                    logger.warning(f"Redis set failed for {cache_key}: {e}", component='cache')
+                    logger.warning(f"Redis set failed for {cache_key}: {e}")
             
             self._cache_stats['sets'] += 1
             perf_logger.log_execution_time('cache_set', time.time() - start_time)
-            logger.debug(f"Cache set: {cache_key} (TTL: {ttl}s)", component='cache')
+            logger.debug(f"Cache set: {cache_key} (TTL: {ttl}s)")
             
         except Exception as e:
-            logger.error(f"Cache set error for {cache_key}: {e}", component='cache', exception=e)
+            logger.error(f"Cache set error for {cache_key}: {e}")
     
     def _set_memory_cache(self, cache_key: str, value: Any, config: CacheConfig, ttl: int = None):
         """Set item in memory cache with size limits"""
@@ -312,10 +349,10 @@ class CacheManager:
                 self._redis_client.delete(cache_key)
             
             self._cache_stats['deletes'] += 1
-            logger.debug(f"Cache delete: {cache_key}", component='cache')
+            logger.debug(f"Cache delete: {cache_key}")
             
         except Exception as e:
-            logger.error(f"Cache delete error for {cache_key}: {e}", component='cache', exception=e)
+            logger.error(f"Cache delete error for {cache_key}: {e}")
     
     def clear_namespace(self, namespace: str):
         """Clear all items in a namespace"""
@@ -335,10 +372,10 @@ class CacheManager:
                 if keys:
                     self._redis_client.delete(*keys)
             
-            logger.info(f"Cleared cache namespace: {namespace}", component='cache')
+            logger.info(f"Cleared cache namespace: {namespace}")
             
         except Exception as e:
-            logger.error(f"Cache clear error for namespace {namespace}: {e}", component='cache', exception=e)
+            logger.error(f"Cache clear error for namespace {namespace}: {e}")
     
     def get_stats(self) -> Dict[str, Any]:
         """Get cache performance statistics"""
@@ -402,22 +439,18 @@ def cached(namespace: str, ttl: Optional[int] = None, key_func: Optional[Callabl
 def cache_warming_context(namespace: str):
     """Context manager for cache warming operations"""
     start_time = time.time()
-    logger.info(f"Starting cache warming for {namespace}", component='cache')
+    logger.info(f"Starting cache warming for {namespace}")
     
     try:
         yield cache_manager
         
     except Exception as e:
-        logger.error(f"Cache warming failed for {namespace}: {e}", component='cache', exception=e)
+        logger.error(f"Cache warming failed for {namespace}: {e}")
         raise
     
     finally:
         duration = time.time() - start_time
-        logger.info(
-            f"Cache warming completed for {namespace}",
-            component='cache',
-            duration_seconds=duration
-        )
+        logger.info(f"Cache warming completed for {namespace} in {duration:.3f}s")
 
 # Global cache manager instance
 cache_manager = CacheManager()

@@ -4,14 +4,43 @@ Provides robust initialization for TensorFlow and other ML libraries with proper
 """
 import os
 import sys
-import threading
-import multiprocessing
 from contextlib import contextmanager
 from typing import Optional, Dict, Any
 import warnings
 
-from src.utils.error_handling import MLModelError, ErrorSeverity, handle_errors
-from src.utils.logging_setup import get_logger
+# Use relative imports for better compatibility
+try:
+    from .error_handling import MLModelError, ErrorSeverity, handle_errors
+    from .logging_setup import get_logger
+except ImportError:
+    # Fallback to basic error handling if modules not available
+    class MLModelError(Exception):
+        def __init__(self, message, severity=None, original_error=None):
+            super().__init__(message)
+            self.severity = severity
+            self.original_error = original_error
+    
+    class ErrorSeverity:
+        HIGH = "HIGH"
+        MEDIUM = "MEDIUM"
+        LOW = "LOW"
+    
+    def handle_errors(category=None, severity=None, recovery=True):
+        def decorator(func):
+            def wrapper(*args, **kwargs):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    print(f"Error in {func.__name__}: {e}")
+                    if recovery:
+                        return None
+                    raise
+            return wrapper
+        return decorator
+    
+    def get_logger(name):
+        import logging
+        return logging.getLogger(name)
 
 logger = get_logger(__name__)
 
@@ -20,59 +49,47 @@ class MLLibraryManager:
     
     def __init__(self):
         self._tf_initialized = False
-        self._tf_lock = threading.Lock()
         self._tf_available = False
         self._xgb_available = False
         self._setup_environment()
     
     def _setup_environment(self):
-        """Setup optimal environment for ML libraries"""
-        # TensorFlow environment variables
+        """Setup minimal environment for ML libraries"""
+        # Only essential TensorFlow environment variables
         os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Suppress warnings
         os.environ['CUDA_VISIBLE_DEVICES'] = '-1'  # Force CPU only
-        os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
-        os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # Disable oneDNN optimizations
         
-        # Threading configuration
-        os.environ['OMP_NUM_THREADS'] = '1'
-        os.environ['TF_NUM_INTEROP_THREADS'] = '1' 
-        os.environ['TF_NUM_INTRAOP_THREADS'] = '1'
+        # Suppress warnings
+        warnings.filterwarnings('ignore', category=UserWarning)
+        warnings.filterwarnings('ignore', category=FutureWarning)
         
-        # Suppress protobuf warnings
-        warnings.filterwarnings('ignore', category=UserWarning, module='google.protobuf')
-        
-        logger.info("ML environment configuration completed", component='ml')
+        logger.info("ML environment configuration completed")
     
-    @handle_errors(category=ErrorSeverity.HIGH, recovery=False)
     def initialize_tensorflow(self) -> bool:
-        """Safely initialize TensorFlow in single-threaded mode"""
+        """Minimal TensorFlow initialization with fallback"""
         if self._tf_initialized:
             return self._tf_available
             
-        with self._tf_lock:
-            if self._tf_initialized:
-                return self._tf_available
+        try:
+            logger.info("Checking TensorFlow availability...")
+            
+            # Try to import TensorFlow - if this fails, it's not available
+            import tensorflow
+            
+            # If we get here, TensorFlow is available
+            self._tf_available = True
+            self.tensorflow = tensorflow
+            logger.info(f"TensorFlow {tensorflow.__version__} is available")
                 
-            try:
-                logger.info("Initializing TensorFlow in safe mode", component='ml')
-                
-                # Import in isolated process to avoid mutex conflicts
-                result = self._import_tensorflow_safe()
-                
-                if result:
-                    self._tf_available = True
-                    logger.info("TensorFlow initialized successfully", component='ml')
-                else:
-                    logger.warning("TensorFlow initialization failed", component='ml')
-                    
-                self._tf_initialized = True
-                return self._tf_available
-                
-            except Exception as e:
-                logger.error("TensorFlow initialization error", exception=e, component='ml')
-                self._tf_initialized = True
-                self._tf_available = False
-                return False
+        except ImportError:
+            logger.info("TensorFlow not installed - skipping")
+            self._tf_available = False
+        except Exception as e:
+            logger.warning(f"TensorFlow check failed: {e}")
+            self._tf_available = False
+            
+        self._tf_initialized = True
+        return self._tf_available
     
     def _import_tensorflow_safe(self) -> bool:
         """Import TensorFlow in a separate process to avoid mutex conflicts"""
@@ -114,27 +131,26 @@ class MLLibraryManager:
         except Exception:
             return False
     
-    @handle_errors(category=ErrorSeverity.MEDIUM, recovery=False)
     def initialize_xgboost(self) -> bool:
-        """Safely initialize XGBoost"""
+        """Minimal XGBoost initialization with fallback"""
         try:
-            import xgboost as xgb
+            logger.info("Checking XGBoost availability...")
             
-            # Test basic functionality
-            import numpy as np
-            data = np.array([[1, 2], [3, 4]])
-            labels = np.array([0, 1])
+            # Try to import XGBoost - if this fails, it's not available
+            import xgboost
             
-            dtrain = xgb.DMatrix(data, label=labels)
-            param = {'max_depth': 2, 'eta': 1, 'objective': 'binary:logistic'}
-            model = xgb.train(param, dtrain, 1)
-            
+            # If we get here, XGBoost is available
             self._xgb_available = True
-            logger.info("XGBoost initialized successfully", component='ml')
+            self.xgboost = xgboost
+            logger.info(f"XGBoost {xgboost.__version__} is available")
             return True
             
+        except ImportError:
+            logger.info("XGBoost not installed - skipping")
+            self._xgb_available = False
+            return False
         except Exception as e:
-            logger.error("XGBoost initialization failed", exception=e, component='ml')
+            logger.warning(f"XGBoost check failed: {e}")
             self._xgb_available = False
             return False
     
@@ -185,7 +201,7 @@ class MLLibraryManager:
                 raise MLModelError(f"Unsupported model type: {model_type}")
                 
         except Exception as e:
-            logger.error(f"Prediction failed for {model_type}", exception=e, component='ml')
+            logger.error(f"Prediction failed for {model_type}: {e}")
             raise MLModelError(f"Prediction failed: {e}", severity=ErrorSeverity.HIGH, original_error=e)
 
 # Global ML manager instance

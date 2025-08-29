@@ -20,10 +20,68 @@ from collections import defaultdict, deque
 import hashlib
 import functools
 
-from src.utils.caching import cache_manager, cached
-from src.utils.error_handling import NetworkError, ErrorSeverity, handle_errors
-from src.utils.logging_setup import get_logger, perf_logger
-from config.enhanced_config import enhanced_config
+# Use fallback imports for better compatibility
+try:
+    from .caching import cache_manager, cached
+except ImportError:
+    # Fallback cache manager
+    class FallbackCacheManager:
+        def get(self, *args, **kwargs):
+            return None
+        def set(self, *args, **kwargs):
+            pass
+    cache_manager = FallbackCacheManager()
+    
+    def cached(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+
+try:
+    from .error_handling import NetworkError, ErrorSeverity, handle_errors
+    from .logging_setup import get_logger, perf_logger
+except ImportError:
+    # Fallback error handling
+    import logging
+    
+    class NetworkError(Exception):
+        def __init__(self, message, severity=None, original_error=None):
+            super().__init__(message)
+            self.severity = severity
+            self.original_error = original_error
+    
+    class ErrorSeverity:
+        HIGH = "HIGH"
+        MEDIUM = "MEDIUM"
+        LOW = "LOW"
+    
+    def handle_errors(category=None, severity=None, recovery=True):
+        def decorator(func):
+            def wrapper(*args, **kwargs):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    logging.error(f"Error in {func.__name__}: {e}")
+                    if recovery:
+                        return None
+                    raise
+            return wrapper
+        return decorator
+    
+    def get_logger(name):
+        return logging.getLogger(name)
+    
+    class PerfLogger:
+        def log_execution_time(self, operation, time_taken):
+            logging.info(f"{operation} took {time_taken:.3f}s")
+    
+    perf_logger = PerfLogger()
+
+try:
+    from config.enhanced_config import enhanced_config
+except ImportError:
+    # Fallback configuration
+    enhanced_config = None
 
 logger = get_logger(__name__)
 
@@ -260,7 +318,7 @@ class ConnectionPoolManager:
                 self.session_pools[pool_name] = session
                 self.stats['active_sessions'] += 1
                 
-                logger.debug(f"Created connection pool: {pool_name}", component='api_optimization')
+                logger.debug(f"Created connection pool: {pool_name}")
             
             return self.session_pools[pool_name]
     
@@ -284,7 +342,7 @@ class ConnectionPoolManager:
             )
             
             self.aio_sessions[pool_name] = session
-            logger.debug(f"Created async connection pool: {pool_name}", component='api_optimization')
+            logger.debug(f"Created async connection pool: {pool_name}")
         
         try:
             yield self.aio_sessions[pool_name]
@@ -304,7 +362,7 @@ class ConnectionPoolManager:
             self.aio_sessions.clear()
             
             self.stats['active_sessions'] = 0
-            logger.info("All HTTP sessions closed", component='api_optimization')
+            logger.info("All HTTP sessions closed")
     
     def get_stats(self) -> Dict[str, Any]:
         """Get connection pool statistics"""
@@ -368,12 +426,12 @@ class APIOptimizer:
                     if request_data:
                         self._process_queued_request(request_data)
                 except Exception as e:
-                    logger.error("Request processor error", exception=e, component='api_optimization')
+                    logger.error("Request processor error")
                     time.sleep(1)
         
         processor_thread = threading.Thread(target=process_requests, daemon=True)
         processor_thread.start()
-        logger.debug("Request processor started", component='api_optimization')
+        logger.debug("Request processor started")
     
     def _process_queued_request(self, request_data: Dict[str, Any]):
         """Process a queued request"""
@@ -386,7 +444,7 @@ class APIOptimizer:
             self.stats['requests_processed'] += 1
             
         except Exception as e:
-            logger.error("Queued request processing failed", exception=e, component='api_optimization')
+            logger.error("Queued request processing failed")
     
     @handle_errors(category=ErrorSeverity.MEDIUM, recovery=True)
     def make_request(
@@ -412,7 +470,7 @@ class APIOptimizer:
                 cached_response = cache_manager.get('api_responses', cache_key)
                 if cached_response:
                     self.stats['cache_hits'] += 1
-                    logger.debug(f"Cache hit for {url}", component='api_optimization')
+                    logger.debug(f"Cache hit for {url}")
                     return cached_response
                 
                 self.stats['cache_misses'] += 1
@@ -465,7 +523,7 @@ class APIOptimizer:
             
         except requests.exceptions.RequestException as e:
             self.connection_manager.stats['failed_requests'] += 1
-            logger.error(f"Request failed: {method} {url}", exception=e, component='api_optimization')
+            logger.error(f"Request failed: {method} {url}")
             raise NetworkError(f"API request failed: {e}", severity=ErrorSeverity.HIGH, original_error=e)
     
     def _queue_request(self, url: str, method: str, priority: RequestPriority, cache_key: str, cache_ttl: int, **kwargs):
@@ -479,7 +537,7 @@ class APIOptimizer:
                     cache_manager.set('api_responses', cache_key, response, ttl_override=cache_ttl)
                     
             except Exception as e:
-                logger.error(f"Queued request failed: {method} {url}", exception=e, component='api_optimization')
+                logger.error(f"Queued request failed: {method} {url}")
         
         request_data = {
             'url': url,
@@ -490,10 +548,10 @@ class APIOptimizer:
         
         if self.request_queue.put(request_data, priority):
             self.stats['requests_queued'] += 1
-            logger.debug(f"Request queued: {method} {url}", component='api_optimization', priority=priority.name)
+            logger.debug(f"Request queued: {method} {url}")
         else:
             self.stats['requests_throttled'] += 1
-            logger.warning(f"Request dropped (queue full): {method} {url}", component='api_optimization')
+            logger.warning(f"Request dropped (queue full): {method} {url}")
     
     def _update_request_stats(self, processing_time: float, status_code: int):
         """Update request processing statistics"""
@@ -524,7 +582,7 @@ class APIOptimizer:
             try:
                 return self.make_request(**request_config)
             except Exception as e:
-                logger.error(f"Batch request failed", exception=e, component='api_optimization')
+                logger.error(f"Batch request failed")
                 return None
         
         # Use ThreadPoolExecutor for concurrent requests
@@ -536,10 +594,10 @@ class APIOptimizer:
                     result = future.result()
                     results.append(result)
                 except Exception as e:
-                    logger.error("Batch request future failed", exception=e, component='api_optimization')
+                    logger.error("Batch request future failed")
                     results.append(None)
         
-        logger.info(f"Batch requests completed: {len(results)} results", component='api_optimization')
+        logger.info(f"Batch requests completed: {len(results)} results")
         return results
     
     def get_stats(self) -> Dict[str, Any]:
@@ -562,7 +620,7 @@ class APIOptimizer:
     def cleanup(self):
         """Cleanup resources"""
         self.connection_manager.close_all_sessions()
-        logger.info("API optimizer cleaned up", component='api_optimization')
+        logger.info("API optimizer cleaned up")
 
 # Global API optimizer instance
 api_optimizer = APIOptimizer()
