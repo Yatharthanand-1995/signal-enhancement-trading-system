@@ -14,7 +14,7 @@ from sqlalchemy.pool import StaticPool, QueuePool
 import pandas as pd
 
 from config.enhanced_config import enhanced_config
-from src.utils.error_handling import DatabaseError, ErrorSeverity, handle_errors, safe_execute
+from src.utils.error_handling import DatabaseError, ErrorSeverity, ErrorCategory, handle_errors, safe_execute
 from src.utils.logging_setup import get_logger, perf_logger
 from src.utils.validation import input_validator, ValidationRule, ValidationType
 

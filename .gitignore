@@ -71,3 +71,23 @@ reports/
 
 # Docker
 docker-compose.override.yml
+
+# Archive (experimental and backup files)
+archive/
+
+# Claude Code specific
+.claude/
+
+# Dashboard logs and temporary files
+dashboard.log
+enhanced_demo_dashboard.py
+instant_dashboard.py
+smart_dashboard.py
+ejd
+
+# Performance and validation scripts (temporary)
+simple_backtest_validation.py
+validate_system_performance.py
+
+# Large JSON reports
+phase3a_validation_report_*.json
