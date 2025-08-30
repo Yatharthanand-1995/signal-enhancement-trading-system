@@ -1,0 +1,9 @@
+{
+  "total_tests": 106,
+  "successful": 106,
+  "success_rate": 1.0,
+  "average_confidence": 0.7451743482142156,
+  "average_signal": 0.057277766811013334,
+  "ml_effectiveness": 0.5754716981132075,
+  "throughput": 144.5088053284743
+}
