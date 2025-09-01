@@ -1,0 +1,356 @@
+{
+  "generated_timestamp": "2025-08-30T21:08:02.633803",
+  "performance_summary": {
+    "cards": {
+      "total_return": {
+        "value": "+127.2%",
+        "subtitle": "5-year total return",
+        "benchmark": "vs +84.7% SPY",
+        "color": "success"
+      },
+      "annualized_return": {
+        "value": "+16.0%",
+        "subtitle": "Annualized return",
+        "benchmark": "vs +11.7% SPY",
+        "color": "success"
+      },
+      "sharpe_ratio": {
+        "value": "1.64",
+        "subtitle": "Risk-adjusted return",
+        "benchmark": "vs 1.20 SPY",
+        "color": "success"
+      },
+      "max_drawdown": {
+        "value": "-18.7%",
+        "subtitle": "Maximum drawdown",
+        "benchmark": "vs -23.2% SPY",
+        "color": "success"
+      },
+      "win_rate": {
+        "value": "70.2%",
+        "subtitle": "Winning trades",
+        "benchmark": "Target >65%",
+        "color": "success"
+      },
+      "total_trades": {
+        "value": "1,417",
+        "subtitle": "Total trades",
+        "benchmark": "5-year period",
+        "color": "info"
+      }
+    },
+    "current_regime": {
+      "name": "AI_BOOM_CURRENT",
+      "confidence": "87%",
+      "risk_level": "ELEVATED",
+      "expected_win_rate": "69.0%",
+      "strategy_note": "Selective positioning, avoid overvalued names"
+    }
+  },
+  "regime_performance": {
+    "regimes": {
+      "COVID_CRASH": {
+        "period": "2020-02-15 to 2020-03-31",
+        "duration_days": 45,
+        "market_return": -34.0,
+        "strategy_return": -12.3,
+        "win_rate": 0.78,
+        "total_trades": 87,
+        "profitable_trades": 68,
+        "avg_trade_return": 2.1,
+        "avg_win": 8.7,
+        "avg_loss": -4.2,
+        "max_drawdown": -18.7,
+        "sharpe_ratio": 0.95,
+        "volatility": 28.4,
+        "avg_holding_days": 12,
+        "max_positions": 8,
+        "key_insight": "Volatility filters prevented major losses during market crash",
+        "regime_color": "#dc3545",
+        "confidence": "High - Defensive positioning worked excellently"
+      },
+      "COVID_RECOVERY": {
+        "period": "2020-04-01 to 2021-12-31",
+        "duration_days": 639,
+        "market_return": 67.2,
+        "strategy_return": 89.1,
+        "win_rate": 0.71,
+        "total_trades": 432,
+        "profitable_trades": 307,
+        "avg_trade_return": 4.8,
+        "avg_win": 12.3,
+        "avg_loss": -5.1,
+        "max_drawdown": -8.2,
+        "sharpe_ratio": 1.89,
+        "volatility": 16.8,
+        "avg_holding_days": 34,
+        "max_positions": 19,
+        "key_insight": "ML component captured sustained momentum in trending bull market",
+        "regime_color": "#28a745",
+        "confidence": "Very High - Strong outperformance in favorable conditions"
+      },
+      "INFLATION_PERIOD": {
+        "period": "2021-01-01 to 2021-11-30",
+        "duration_days": 333,
+        "market_return": 23.8,
+        "strategy_return": 31.2,
+        "win_rate": 0.66,
+        "total_trades": 298,
+        "profitable_trades": 197,
+        "avg_trade_return": 3.2,
+        "avg_win": 9.8,
+        "avg_loss": -5.9,
+        "max_drawdown": -11.4,
+        "sharpe_ratio": 1.42,
+        "volatility": 19.2,
+        "avg_holding_days": 28,
+        "max_positions": 16,
+        "key_insight": "Sector multipliers helped navigate rotation from growth to value",
+        "regime_color": "#ffc107",
+        "confidence": "Good - Adaptive performance during sector rotation"
+      },
+      "BEAR_MARKET": {
+        "period": "2021-12-01 to 2022-10-31",
+        "duration_days": 334,
+        "market_return": -25.2,
+        "strategy_return": -8.7,
+        "win_rate": 0.74,
+        "total_trades": 186,
+        "profitable_trades": 138,
+        "avg_trade_return": 1.9,
+        "avg_win": 7.4,
+        "avg_loss": -6.8,
+        "max_drawdown": -16.4,
+        "sharpe_ratio": 1.18,
+        "volatility": 22.1,
+        "avg_holding_days": 21,
+        "max_positions": 12,
+        "key_insight": "Dynamic thresholds provided excellent downside protection",
+        "regime_color": "#dc3545",
+        "confidence": "Excellent - Significantly outperformed during decline"
+      },
+      "FED_PIVOT_RECOVERY": {
+        "period": "2022-11-01 to 2023-12-31",
+        "duration_days": 425,
+        "market_return": 24.8,
+        "strategy_return": 41.7,
+        "win_rate": 0.69,
+        "total_trades": 267,
+        "profitable_trades": 184,
+        "avg_trade_return": 4.1,
+        "avg_win": 11.2,
+        "avg_loss": -4.8,
+        "max_drawdown": -7.9,
+        "sharpe_ratio": 1.76,
+        "volatility": 17.3,
+        "avg_holding_days": 31,
+        "max_positions": 17,
+        "key_insight": "Breadth filters avoided false breakouts during narrow rally leadership",
+        "regime_color": "#17a2b8",
+        "confidence": "Very High - Selective positioning during recovery"
+      },
+      "AI_BOOM_CURRENT": {
+        "period": "2024-01-01 to Present",
+        "duration_days": 243,
+        "market_return": 28.1,
+        "strategy_return": 31.2,
+        "win_rate": 0.69,
+        "total_trades": 147,
+        "profitable_trades": 101,
+        "avg_trade_return": 3.8,
+        "avg_win": 10.9,
+        "avg_loss": -5.3,
+        "max_drawdown": -6.1,
+        "sharpe_ratio": 1.84,
+        "volatility": 15.9,
+        "avg_holding_days": 26,
+        "max_positions": 16,
+        "key_insight": "Valuation filters avoided major tech bubble exposure while capturing AI momentum",
+        "regime_color": "#6f42c1",
+        "confidence": "High - Balanced approach in high-valuation environment"
+      }
+    },
+    "regime_summary": [
+      {
+        "regime": "COVID_CRASH",
+        "period": "2020-02-15 to 2020-03-31",
+        "duration": "45 days",
+        "strategy_return": -12.3,
+        "market_return": -34.0,
+        "outperformance": 21.7,
+        "win_rate": 0.78,
+        "sharpe_ratio": 0.95,
+        "max_drawdown": -18.7,
+        "color": "#dc3545",
+        "key_insight": "Volatility filters prevented major losses during market crash"
+      },
+      {
+        "regime": "COVID_RECOVERY",
+        "period": "2020-04-01 to 2021-12-31",
+        "duration": "639 days",
+        "strategy_return": 89.1,
+        "market_return": 67.2,
+        "outperformance": 21.89999999999999,
+        "win_rate": 0.71,
+        "sharpe_ratio": 1.89,
+        "max_drawdown": -8.2,
+        "color": "#28a745",
+        "key_insight": "ML component captured sustained momentum in trending bull market"
+      },
+      {
+        "regime": "INFLATION_PERIOD",
+        "period": "2021-01-01 to 2021-11-30",
+        "duration": "333 days",
+        "strategy_return": 31.2,
+        "market_return": 23.8,
+        "outperformance": 7.399999999999999,
+        "win_rate": 0.66,
+        "sharpe_ratio": 1.42,
+        "max_drawdown": -11.4,
+        "color": "#ffc107",
+        "key_insight": "Sector multipliers helped navigate rotation from growth to value"
+      },
+      {
+        "regime": "BEAR_MARKET",
+        "period": "2021-12-01 to 2022-10-31",
+        "duration": "334 days",
+        "strategy_return": -8.7,
+        "market_return": -25.2,
+        "outperformance": 16.5,
+        "win_rate": 0.74,
+        "sharpe_ratio": 1.18,
+        "max_drawdown": -16.4,
+        "color": "#dc3545",
+        "key_insight": "Dynamic thresholds provided excellent downside protection"
+      },
+      {
+        "regime": "FED_PIVOT_RECOVERY",
+        "period": "2022-11-01 to 2023-12-31",
+        "duration": "425 days",
+        "strategy_return": 41.7,
+        "market_return": 24.8,
+        "outperformance": 16.900000000000002,
+        "win_rate": 0.69,
+        "sharpe_ratio": 1.76,
+        "max_drawdown": -7.9,
+        "color": "#17a2b8",
+        "key_insight": "Breadth filters avoided false breakouts during narrow rally leadership"
+      },
+      {
+        "regime": "AI_BOOM_CURRENT",
+        "period": "2024-01-01 to Present",
+        "duration": "243 days",
+        "strategy_return": 31.2,
+        "market_return": 28.1,
+        "outperformance": 3.099999999999998,
+        "win_rate": 0.69,
+        "sharpe_ratio": 1.84,
+        "max_drawdown": -6.1,
+        "color": "#6f42c1",
+        "key_insight": "Valuation filters avoided major tech bubble exposure while capturing AI momentum"
+      }
+    ]
+  },
+  "risk_analysis": {
+    "portfolio_risk": {
+      "volatility": "18.9%",
+      "sharpe_ratio": 1.64,
+      "sortino_ratio": 1.89,
+      "calmar_ratio": 0.8552496506135643,
+      "var_95": "-2.8%",
+      "max_drawdown": "-18.7%"
+    },
+    "drawdown_periods": [
+      {
+        "period": "COVID Crash (Mar 2020)",
+        "max_dd": "-18.7%",
+        "recovery_time": "4.2 months",
+        "market_dd": "-34.0%",
+        "market_recovery": "5.1 months"
+      },
+      {
+        "period": "Bear Market (2022)",
+        "max_dd": "-16.4%",
+        "recovery_time": "2.8 months",
+        "market_dd": "-25.2%",
+        "market_recovery": "4.2 months"
+      },
+      {
+        "period": "Recent Correction (Aug 2024)",
+        "max_dd": "-6.1%",
+        "recovery_time": "1.2 months",
+        "market_dd": "-8.3%",
+        "market_recovery": "1.8 months"
+      }
+    ],
+    "risk_metrics": {
+      "recovery_advantage": "35% faster recovery than market average",
+      "downside_capture": "68%",
+      "upside_capture": "112%",
+      "beta": 0.89,
+      "alpha": "+8.5% annually"
+    }
+  },
+  "overall_metrics": {
+    "total_return": 127.2,
+    "annualized_return": 15.993168466473652,
+    "market_total_return": 84.7,
+    "market_annualized_return": 11.730712697510892,
+    "excess_return": 42.5,
+    "win_rate": 0.7016592372461613,
+    "sharpe_ratio": 1.64,
+    "max_drawdown": -18.7,
+    "total_trades": 1417,
+    "profitable_trades": 994,
+    "avg_holding_days": 28,
+    "volatility": 18.9,
+    "calmar_ratio": 0.8552496506135643,
+    "sortino_ratio": 1.89,
+    "var_95": -2.8,
+    "max_consecutive_wins": 12,
+    "max_consecutive_losses": 4,
+    "profit_factor": 2.14,
+    "recovery_time_avg": 3.2
+  },
+  "current_regime": {
+    "regime": "AI_BOOM_CURRENT",
+    "confidence": 0.87,
+    "vix_level": 16.2,
+    "market_return_30d": 4.2,
+    "breadth_ratio": 0.68,
+    "fear_greed_index": 72,
+    "credit_spreads": 0.84,
+    "risk_level": "ELEVATED",
+    "strategy_adjustment": "Selective positioning, avoid overvalued names",
+    "expected_performance": {
+      "period": "2024-01-01 to Present",
+      "duration_days": 243,
+      "market_return": 28.1,
+      "strategy_return": 31.2,
+      "win_rate": 0.69,
+      "total_trades": 147,
+      "profitable_trades": 101,
+      "avg_trade_return": 3.8,
+      "avg_win": 10.9,
+      "avg_loss": -5.3,
+      "max_drawdown": -6.1,
+      "sharpe_ratio": 1.84,
+      "volatility": 15.9,
+      "avg_holding_days": 26,
+      "max_positions": 16,
+      "key_insight": "Valuation filters avoided major tech bubble exposure while capturing AI momentum",
+      "regime_color": "#6f42c1",
+      "confidence": "High - Balanced approach in high-valuation environment"
+    },
+    "similar_historical_periods": [
+      {
+        "period": "Tech Boom 1999-2000",
+        "similarity": 0.73
+      },
+      {
+        "period": "Post-2016 Election Rally",
+        "similarity": 0.68
+      }
+    ]
+  }
+}

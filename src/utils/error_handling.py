@@ -55,7 +55,7 @@ class TradingSystemError(Exception):
     def to_dict(self) -> Dict[str, Any]:
         """Convert error to dictionary for logging/serialization"""
         return {
-            'message': self.message,
+            'error_message': self.message,  # Renamed to avoid conflict with LogRecord.message
             'category': self.category.value,
             'severity': self.severity.value,
             'details': self.details,
