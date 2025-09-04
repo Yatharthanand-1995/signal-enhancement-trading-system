@@ -20,105 +20,196 @@ from io import BytesIO
 from streamlit_extras.stylable_container import stylable_container
 
 # Add src to path for imports
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from utils.historical_data_manager import HistoricalDataManager
+sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
+from src.utils.historical_data_manager import HistoricalDataManager
 
 warnings.filterwarnings('ignore')
 
+# Theme detection and color scheme management
+def detect_theme():
+    """Detect current theme from existing dark mode session state"""
+    try:
+        # Use the existing dark_mode session state
+        return 'dark' if st.session_state.get('dark_mode', False) else 'light'
+    except:
+        return 'light'
+
+def get_theme_colors(theme='light'):
+    """Get color scheme based on current theme"""
+    if theme == 'dark':
+        return {
+            'background': '#0F1419',  # Match existing dark mode
+            'secondary_background': '#1E2936',  # Match existing
+            'text_primary': '#FFFFFF',  # Match existing
+            'text_secondary': '#E2E8F0',  # Match existing  
+            'text_muted': '#CBD5E1',  # Match existing
+            'badge_text': '#FFFFFF',  # White text for dark theme badges
+            'success': '#22C55E',  # Brighter for dark backgrounds
+            'success_dark': '#16A34A', 
+            'warning': '#F59E0B',  # Brighter amber for dark theme
+            'warning_dark': '#D97706',
+            'error': '#EF4444',  # Brighter red for dark theme
+            'error_dark': '#DC2626',
+            'info': '#60A5FA',  # Light blue for dark theme
+            'info_dark': '#3B82F6',
+            'neutral': '#9CA3AF',  # Lighter neutral for visibility
+            'neutral_dark': '#64748B',
+            'border': '#475569',  # Match existing
+            'surface': '#2C3441'  # Match existing hover
+        }
+    else:  # light theme
+        return {
+            'background': '#FFFFFF',
+            'secondary_background': '#F1F5F9',
+            'text_primary': '#1E293B',
+            'text_secondary': '#334155',  # Match existing
+            'text_muted': '#64748B',  # Match existing
+            'badge_text': '#FFFFFF',  # White text for light theme badges
+            'success': '#16A34A',
+            'success_dark': '#15803D',
+            'warning': '#D97706',
+            'warning_dark': '#B45309',
+            'error': '#DC2626',
+            'error_dark': '#B91C1C',
+            'info': '#2563EB',
+            'info_dark': '#1D4ED8',
+            'neutral': '#64748B',
+            'neutral_dark': '#475569',
+            'border': '#CBD5E1',  # Match existing
+            'surface': '#F8FAFC'
+        }
+
+def get_signal_colors(theme=None):
+    """Get theme-appropriate colors for signals, metrics, and charts"""
+    if theme is None:
+        theme = detect_theme()
+    colors = get_theme_colors(theme)
+    
+    return {
+        'positive': colors['success'],      # Green for positive/buy signals  
+        'negative': colors['error'],        # Red for negative/sell signals
+        'neutral': colors['neutral'],       # Gray for neutral/hold signals
+        'text_on_bg': colors['text_primary']  # Appropriate text color for current background
+    }
+
 # Global styling functions for reuse across the application
-def style_signals(val):
+def style_signals(val, theme=None):
     """Style signal values with colors and badges"""
+    if theme is None:
+        theme = detect_theme()
+    colors = get_theme_colors(theme)
+    
     try:
         val_str = str(val)
         if 'STRONG_BUY' in val_str:
-            return 'background: var(--success-green, #10B981); color: white; padding: 4px 8px; border-radius: 6px; font-weight: 600;'
+            return f'background: {colors["success_dark"]}; color: {colors["badge_text"]}; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 0.875rem;'
         elif 'BUY' in val_str:
-            return 'background: var(--success-green-light, #34D399); color: white; padding: 4px 8px; border-radius: 6px; font-weight: 600;'
+            return f'background: {colors["success"]}; color: {colors["badge_text"]}; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 0.875rem;'
         elif 'STRONG_SELL' in val_str:
-            return 'background: var(--danger-red, #EF4444); color: white; padding: 4px 8px; border-radius: 6px; font-weight: 600;'
+            return f'background: {colors["error_dark"]}; color: {colors["badge_text"]}; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 0.875rem;'
         elif 'SELL' in val_str:
-            return 'background: var(--danger-red-light, #F87171); color: white; padding: 4px 8px; border-radius: 6px; font-weight: 600;'
+            return f'background: {colors["error"]}; color: {colors["badge_text"]}; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 0.875rem;'
         elif 'Strong' in val_str:
-            return 'background: var(--warning-amber, #F59E0B); color: white; padding: 4px 8px; border-radius: 6px; font-weight: 600;'
+            return f'background: {colors["warning_dark"]}; color: {colors["badge_text"]}; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 0.875rem;'
         else:
-            return 'background: var(--neutral-gray, #6B7280); color: white; padding: 4px 8px; border-radius: 6px; font-weight: 600;'
+            return f'background: {colors["neutral"]}; color: {colors["badge_text"]}; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 0.875rem;'
     except Exception:
-        return 'color: var(--text-primary, #111827);'
+        return f'color: {colors["text_primary"]}; font-weight: 600; background: {colors["surface"]}; padding: 2px 4px; border-radius: 4px;'
 
-def style_risk_reward(val):
+def style_risk_reward(val, theme=None):
     """Style risk/reward ratios with colors"""
+    if theme is None:
+        theme = detect_theme()
+    colors = get_theme_colors(theme)
+    
     try:
         ratio = float(str(val).split(':')[0])
         if ratio >= 2.0:
-            return 'color: var(--success-green, #10B981); font-weight: 600;'
+            return f'color: {colors["badge_text"]}; font-weight: 700; background: {colors["success_dark"]}; padding: 4px 8px; border-radius: 6px;'
         elif ratio >= 1.5:
-            return 'color: var(--warning-amber, #F59E0B); font-weight: 600;'
+            return f'color: {colors["badge_text"]}; font-weight: 700; background: {colors["warning_dark"]}; padding: 4px 8px; border-radius: 6px;'
         else:
-            return 'color: var(--danger-red, #EF4444); font-weight: 600;'
+            return f'color: {colors["badge_text"]}; font-weight: 700; background: {colors["error_dark"]}; padding: 4px 8px; border-radius: 6px;'
     except Exception:
-        return 'color: var(--neutral-gray, #6B7280);'
+        return f'color: {colors["text_primary"]}; font-weight: 600; background: {colors["surface"]}; padding: 2px 4px; border-radius: 4px;'
 
-def style_confidence(val):
+def style_confidence(val, theme=None):
     """Style confidence percentages with colors"""
+    if theme is None:
+        theme = detect_theme()
+    colors = get_theme_colors(theme)
+    
     try:
         conf = float(str(val).rstrip('%')) / 100
         if conf >= 0.75:
-            return 'color: var(--success-green, #10B981); font-weight: 600;'
+            return f'color: {colors["badge_text"]}; font-weight: 700; background: {colors["success_dark"]}; padding: 4px 8px; border-radius: 6px;'
         elif conf >= 0.60:
-            return 'color: var(--warning-amber, #F59E0B); font-weight: 600;'
+            return f'color: {colors["badge_text"]}; font-weight: 700; background: {colors["warning_dark"]}; padding: 4px 8px; border-radius: 6px;'
         else:
-            return 'color: var(--danger-red, #EF4444); font-weight: 600;'
+            return f'color: {colors["badge_text"]}; font-weight: 700; background: {colors["error_dark"]}; padding: 4px 8px; border-radius: 6px;'
     except Exception:
-        return 'color: var(--neutral-gray, #6B7280);'
+        return f'color: {colors["text_primary"]}; font-weight: 600; background: {colors["surface"]}; padding: 2px 4px; border-radius: 4px;'
 
-def style_rsi(val):
+def style_rsi(val, theme=None):
     """Style RSI values with color coding"""
+    if theme is None:
+        theme = detect_theme()
+    colors = get_theme_colors(theme)
+    
     try:
         rsi_val = float(str(val).replace('%', ''))
         if rsi_val >= 70:
-            return 'color: #EF4444; font-weight: 600;'  # Red for overbought
+            return f'color: {colors["badge_text"]}; font-weight: 700; background: {colors["error_dark"]}; padding: 4px 8px; border-radius: 6px;'  # Red for overbought
         elif rsi_val <= 30:
-            return 'color: #10B981; font-weight: 600;'  # Green for oversold
+            return f'color: {colors["badge_text"]}; font-weight: 700; background: {colors["success_dark"]}; padding: 4px 8px; border-radius: 6px;'  # Green for oversold
         elif rsi_val >= 60:
-            return 'color: #F59E0B; font-weight: 500;'  # Orange for approaching overbought
+            return f'color: {colors["badge_text"]}; font-weight: 600; background: {colors["warning_dark"]}; padding: 4px 8px; border-radius: 6px;'  # Orange for approaching overbought
         elif rsi_val <= 40:
-            return 'color: #059669; font-weight: 500;'  # Light green for approaching oversold
+            return f'color: {colors["badge_text"]}; font-weight: 600; background: {colors["success"]}; padding: 4px 8px; border-radius: 6px;'  # Light green for approaching oversold
         else:
-            return 'color: #6B7280;'  # Gray for neutral
+            return f'color: {colors["text_primary"]}; font-weight: 500; background: {colors["surface"]}; padding: 2px 4px; border-radius: 4px;'  # Neutral
     except Exception:
-        return 'color: #6B7280;'
+        return f'color: {colors["text_primary"]}; font-weight: 500; background: {colors["surface"]}; padding: 2px 4px; border-radius: 4px;'
 
-def style_volume(val):
+def style_volume(val, theme=None):
     """Style volume ratio with color coding"""
+    if theme is None:
+        theme = detect_theme()
+    colors = get_theme_colors(theme)
+    
     try:
         vol_val = float(str(val).replace('x', ''))
         if vol_val >= 2.0:
-            return 'color: #10B981; font-weight: 600;'  # Green for high volume
+            return f'color: {colors["badge_text"]}; font-weight: 700; background: {colors["success_dark"]}; padding: 4px 8px; border-radius: 6px;'  # Green for high volume
         elif vol_val >= 1.5:
-            return 'color: #059669; font-weight: 500;'  # Light green for above average
+            return f'color: {colors["badge_text"]}; font-weight: 600; background: {colors["success"]}; padding: 4px 8px; border-radius: 6px;'  # Light green for above average
         elif vol_val <= 0.5:
-            return 'color: #EF4444; font-weight: 500;'  # Red for low volume
+            return f'color: {colors["badge_text"]}; font-weight: 600; background: {colors["error_dark"]}; padding: 4px 8px; border-radius: 6px;'  # Red for low volume
         else:
-            return 'color: #6B7280;'  # Gray for normal volume
+            return f'color: {colors["text_primary"]}; font-weight: 500; background: {colors["surface"]}; padding: 2px 4px; border-radius: 4px;'  # Normal volume
     except Exception:
-        return 'color: #6B7280;'
+        return f'color: {colors["text_primary"]}; font-weight: 500; background: {colors["surface"]}; padding: 2px 4px; border-radius: 4px;'
 
-def style_bollinger(val):
+def style_bollinger(val, theme=None):
     """Style Bollinger Band position with color coding"""
+    if theme is None:
+        theme = detect_theme()
+    colors = get_theme_colors(theme)
+    
     try:
         bb_val = float(str(val).replace('%', ''))
         if bb_val >= 95:
-            return 'color: #EF4444; font-weight: 600;'  # Red for near upper band
+            return f'color: {colors["badge_text"]}; font-weight: 700; background: {colors["error_dark"]}; padding: 4px 8px; border-radius: 6px;'  # Red for near upper band
         elif bb_val >= 80:
-            return 'color: #F59E0B; font-weight: 500;'  # Orange for approaching upper
+            return f'color: {colors["badge_text"]}; font-weight: 600; background: {colors["warning_dark"]}; padding: 4px 8px; border-radius: 6px;'  # Orange for approaching upper
         elif bb_val <= 5:
-            return 'color: #10B981; font-weight: 600;'  # Green for near lower band
+            return f'color: {colors["badge_text"]}; font-weight: 700; background: {colors["success_dark"]}; padding: 4px 8px; border-radius: 6px;'  # Green for near lower band
         elif bb_val <= 20:
-            return 'color: #059669; font-weight: 500;'  # Light green for approaching lower
+            return f'color: {colors["badge_text"]}; font-weight: 600; background: {colors["success"]}; padding: 4px 8px; border-radius: 6px;'  # Light green for approaching lower
         else:
-            return 'color: #6B7280;'  # Gray for middle range
+            return f'color: {colors["text_primary"]}; font-weight: 500; background: {colors["surface"]}; padding: 2px 4px; border-radius: 4px;'  # Middle range
     except Exception:
-        return 'color: #6B7280;'
+        return f'color: {colors["text_primary"]}; font-weight: 500; background: {colors["surface"]}; padding: 2px 4px; border-radius: 4px;'
 
 def apply_table_styling(display_df, columns_config=None):
     """Apply consistent styling to dataframes with error handling"""
@@ -179,6 +270,14 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Force a consistent theme configuration
+if hasattr(st, '_config'):
+    st._config.set_option('theme.base', 'light')
+    st._config.set_option('theme.primaryColor', '#2563EB')  
+    st._config.set_option('theme.backgroundColor', '#FFFFFF')
+    st._config.set_option('theme.secondaryBackgroundColor', '#F1F5F9')
+    st._config.set_option('theme.textColor', '#1E293B')
+
 # Dark Mode State Management
 if 'dark_mode' not in st.session_state:
     st.session_state.dark_mode = False
@@ -189,29 +288,29 @@ if 'auto_refresh' not in st.session_state:
 if 'refresh_interval' not in st.session_state:
     st.session_state.refresh_interval = 300  # 5 minutes default
 
-# Modern Design System - Professional Trading Dashboard with Dark Mode Support
+# Modern Design System - Professional Trading Dashboard with Enhanced Contrast
 dark_mode_vars = """
-    /* Dark Mode Variables */
-    --bg-primary: #1F2937;
-    --bg-secondary: #111827;
-    --bg-card: #374151;
-    --bg-hover: #4B5563;
-    --text-primary: #F9FAFB;
-    --text-secondary: #D1D5DB;
-    --text-muted: #9CA3AF;
-    --border-color: #4B5563;
-    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    /* Dark Mode Variables - Enhanced Contrast */
+    --bg-primary: #0F1419;
+    --bg-secondary: #1A1F29;
+    --bg-card: #242936;
+    --bg-hover: #2C3441;
+    --text-primary: #FFFFFF;
+    --text-secondary: #E2E8F0;
+    --text-muted: #CBD5E1;
+    --border-color: #475569;
+    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
 """ if st.session_state.dark_mode else """
-    /* Light Mode Variables */
+    /* Light Mode Variables - Enhanced Contrast */
     --bg-primary: #FFFFFF;
-    --bg-secondary: #F8FAFC;
+    --bg-secondary: #F1F5F9;
     --bg-card: #FFFFFF;
-    --bg-hover: #F1F5F9;
-    --text-primary: #111827;
-    --text-secondary: #6B7280;
-    --text-muted: #9CA3AF;
-    --border-color: #E5E7EB;
-    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --bg-hover: #E2E8F0;
+    --text-primary: #1E293B;
+    --text-secondary: #334155;
+    --text-muted: #64748B;
+    --border-color: #CBD5E1;
+    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.15), 0 2px 4px -1px rgba(0, 0, 0, 0.08);
 """
 
 # Create complete CSS content
@@ -230,22 +329,22 @@ css_content = """
         
 """ + dark_mode_vars + """
         
-        --success-green: #10B981;
-        --success-green-light: #34D399;
-        --success-green-bg: #ECFDF5;
+        --success-green: #16A34A;
+        --success-green-light: #22C55E;
+        --success-green-bg: rgba(22, 163, 74, 0.1);
         
-        --danger-red: #EF4444;
-        --danger-red-light: #F87171;
-        --danger-red-bg: #FEF2F2;
+        --danger-red: #DC2626;
+        --danger-red-light: #EF4444;
+        --danger-red-bg: rgba(220, 38, 38, 0.1);
         
-        --warning-amber: #F59E0B;
-        --warning-amber-light: #FBBF24;
-        --warning-amber-bg: #FFFBEB;
+        --warning-amber: #D97706;
+        --warning-amber-light: #64748B;
+        --warning-amber-bg: rgba(217, 119, 6, 0.1);
         
-        --neutral-gray: #6B7280;
-        --neutral-gray-light: #9CA3AF;
-        --neutral-gray-dark: #374151;
-        --neutral-gray-bg: #F9FAFB;
+        --neutral-gray: #64748B;
+        --neutral-gray-light: #94A3B8;
+        --neutral-gray-dark: #334155;
+        --neutral-gray-bg: rgba(100, 116, 139, 0.1);
         
         /* Text Accent */
         --text-accent: #2563EB;
@@ -678,6 +777,278 @@ css_content = """
         box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
     }
     
+    /* ENHANCED STREAMLIT COMPONENT STYLING FOR BETTER CONTRAST */
+    
+    /* Main content area */
+    .main .block-container {
+        background-color: var(--bg-primary);
+        color: var(--text-primary);
+        padding: 2rem 1rem;
+    }
+    
+    /* Streamlit Sidebar styling - Complete dark mode support */
+    section[data-testid="stSidebar"] {
+        background-color: var(--bg-secondary) !important;
+    }
+    
+    section[data-testid="stSidebar"] > div {
+        background-color: var(--bg-secondary) !important;
+        color: var(--text-primary) !important;
+    }
+    
+    /* Sidebar content and widgets */
+    section[data-testid="stSidebar"] .stMarkdown,
+    section[data-testid="stSidebar"] .stMarkdown p,
+    section[data-testid="stSidebar"] .stMarkdown h1,
+    section[data-testid="stSidebar"] .stMarkdown h2,
+    section[data-testid="stSidebar"] .stMarkdown h3 {
+        color: var(--text-primary) !important;
+    }
+    
+    /* Sidebar selectbox and inputs */
+    section[data-testid="stSidebar"] .stSelectbox > div > div,
+    section[data-testid="stSidebar"] .stTextInput > div > div,
+    section[data-testid="stSidebar"] .stNumberInput > div > div {
+        background-color: var(--bg-card) !important;
+        color: var(--text-primary) !important;
+        border-color: var(--border-color) !important;
+    }
+    
+    /* Sidebar buttons */
+    section[data-testid="stSidebar"] .stButton > button {
+        background-color: var(--bg-card) !important;
+        color: var(--text-primary) !important;
+        border: 1px solid var(--border-color) !important;
+    }
+    
+    section[data-testid="stSidebar"] .stButton > button:hover {
+        background-color: var(--bg-hover) !important;
+        border-color: var(--primary-blue) !important;
+    }
+    
+    /* Legacy sidebar support */
+    .sidebar .sidebar-content {
+        background-color: var(--bg-card);
+        color: var(--text-primary);
+    }
+    
+    /* All text elements */
+    .stMarkdown, .stMarkdown p, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4, .stMarkdown h5, .stMarkdown h6 {
+        color: var(--text-primary) !important;
+    }
+    
+    /* Dataframes and tables */
+    .stDataFrame, .stDataFrame table, .stDataFrame th, .stDataFrame td {
+        background-color: var(--bg-card) !important;
+        color: var(--text-primary) !important;
+        border-color: var(--border-color) !important;
+    }
+    
+    .stDataFrame table {
+        border-collapse: collapse;
+    }
+    
+    .stDataFrame th {
+        background-color: var(--bg-secondary) !important;
+        color: var(--text-secondary) !important;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.875rem;
+        padding: 12px 8px;
+        border-bottom: 2px solid var(--border-color) !important;
+    }
+    
+    .stDataFrame td {
+        padding: 12px 8px;
+        border-bottom: 1px solid var(--border-color) !important;
+    }
+    
+    .stDataFrame tbody tr:nth-child(even) {
+        background-color: var(--bg-hover) !important;
+    }
+    
+    .stDataFrame tbody tr:hover {
+        background-color: var(--bg-hover) !important;
+        transition: background-color 0.2s ease;
+    }
+    
+    /* Selectboxes and inputs */
+    .stSelectbox > div > div, .stTextInput > div > div > input {
+        background-color: var(--bg-card) !important;
+        color: var(--text-primary) !important;
+        border-color: var(--border-color) !important;
+    }
+    
+    .stSelectbox label, .stTextInput label {
+        color: var(--text-secondary) !important;
+        font-weight: 600;
+    }
+    
+    /* Number inputs */
+    .stNumberInput > div > div > input {
+        background-color: var(--bg-card) !important;
+        color: var(--text-primary) !important;
+        border-color: var(--border-color) !important;
+    }
+    
+    /* Buttons */
+    .stButton > button {
+        background-color: var(--primary-blue) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: var(--radius-md) !important;
+        font-weight: 600 !important;
+        padding: 0.75rem 1.5rem !important;
+        transition: all 0.2s ease !important;
+    }
+    
+    .stButton > button:hover {
+        background-color: var(--primary-blue-dark) !important;
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-md) !important;
+    }
+    
+    /* Download buttons */
+    .stDownloadButton > button {
+        background-color: var(--success-green) !important;
+        color: white !important;
+        border: none !important;
+    }
+    
+    .stDownloadButton > button:hover {
+        background-color: var(--success-green-light) !important;
+    }
+    
+    /* Metrics */
+    .metric-container {
+        background-color: var(--bg-card) !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: var(--radius-lg) !important;
+        padding: 1.5rem !important;
+        box-shadow: var(--shadow-sm) !important;
+    }
+    
+    .metric-container .metric-label {
+        color: var(--text-secondary) !important;
+        font-size: 0.875rem !important;
+        font-weight: 600 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.05em !important;
+    }
+    
+    .metric-container .metric-value {
+        color: var(--text-primary) !important;
+        font-size: 2rem !important;
+        font-weight: 700 !important;
+        font-family: 'JetBrains Mono', monospace !important;
+    }
+    
+    /* Columns */
+    .stColumn {
+        background-color: var(--bg-card);
+        border-radius: var(--radius-lg);
+        padding: 1rem;
+        margin: 0.25rem;
+        box-shadow: var(--shadow-sm);
+    }
+    
+    /* Radio buttons */
+    .stRadio > div {
+        background-color: var(--bg-card) !important;
+        border-radius: var(--radius-md) !important;
+        padding: 1rem !important;
+        border: 1px solid var(--border-color) !important;
+    }
+    
+    .stRadio label {
+        color: var(--text-primary) !important;
+    }
+    
+    /* Checkboxes */
+    .stCheckbox > label {
+        color: var(--text-primary) !important;
+    }
+    
+    /* Sliders */
+    .stSlider > div > div > div > div {
+        background-color: var(--primary-blue) !important;
+    }
+    
+    .stSlider label {
+        color: var(--text-secondary) !important;
+    }
+    
+    /* Alerts and messages */
+    .stAlert {
+        background-color: var(--bg-card) !important;
+        color: var(--text-primary) !important;
+        border-color: var(--border-color) !important;
+    }
+    
+    .stInfo {
+        background-color: var(--primary-blue-bg) !important;
+        color: var(--text-primary) !important;
+        border-left: 4px solid var(--primary-blue) !important;
+    }
+    
+    .stSuccess {
+        background-color: var(--success-green-bg) !important;
+        color: var(--text-primary) !important;
+        border-left: 4px solid var(--success-green) !important;
+    }
+    
+    .stWarning {
+        background-color: var(--warning-amber-bg) !important;
+        color: var(--text-primary) !important;
+        border-left: 4px solid var(--warning-amber) !important;
+    }
+    
+    .stError {
+        background-color: var(--danger-red-bg) !important;
+        color: var(--text-primary) !important;
+        border-left: 4px solid var(--danger-red) !important;
+    }
+    
+    /* Plotly charts */
+    .stPlotlyChart {
+        background-color: var(--bg-card) !important;
+        border-radius: var(--radius-lg) !important;
+        padding: 1rem !important;
+        border: 1px solid var(--border-color) !important;
+    }
+    
+    /* Progress bars */
+    .stProgress > div > div > div > div {
+        background-color: var(--primary-blue) !important;
+    }
+    
+    /* Text areas */
+    .stTextArea > div > div > textarea {
+        background-color: var(--bg-card) !important;
+        color: var(--text-primary) !important;
+        border-color: var(--border-color) !important;
+    }
+    
+    /* File uploaders */
+    .stFileUploader > div {
+        background-color: var(--bg-card) !important;
+        border-color: var(--border-color) !important;
+        color: var(--text-primary) !important;
+    }
+    
+    /* Expandable sections */
+    .streamlit-expanderHeader {
+        background-color: var(--bg-card) !important;
+        color: var(--text-primary) !important;
+        border-color: var(--border-color) !important;
+    }
+    
+    .streamlit-expanderContent {
+        background-color: var(--bg-card) !important;
+        color: var(--text-primary) !important;
+        border-color: var(--border-color) !important;
+    }
+    
     /* Better scrollbars */
     ::-webkit-scrollbar {
         width: 8px;
@@ -696,6 +1067,52 @@ css_content = """
     
     ::-webkit-scrollbar-thumb:hover {
         background: var(--neutral-gray);
+    }
+    
+    /* Enhanced Table Styling for High Contrast */
+    .stDataFrame {
+        border: 1px solid #E2E8F0 !important;
+        border-radius: 8px !important;
+        overflow: hidden !important;
+    }
+    
+    .stDataFrame > div {
+        background: #FFFFFF !important;
+    }
+    
+    /* Table headers */
+    .stDataFrame thead tr th {
+        background: #1E293B !important;
+        color: {colors["badge_text"]} !important;
+        font-weight: 600 !important;
+        padding: 12px 8px !important;
+        border-bottom: 2px solid #334155 !important;
+    }
+    
+    /* Table body */
+    .stDataFrame tbody tr td {
+        background: #FFFFFF !important;
+        color: #1E293B !important;
+        padding: 10px 8px !important;
+        border-bottom: 1px solid #E2E8F0 !important;
+        font-weight: 500 !important;
+    }
+    
+    /* Alternating row colors */
+    .stDataFrame tbody tr:nth-child(even) td {
+        background: #F8FAFC !important;
+    }
+    
+    /* Table hover effects */
+    .stDataFrame tbody tr:hover td {
+        background: #E2E8F0 !important;
+        color: #1E293B !important;
+    }
+    
+    /* Ensure styled content in tables remains visible */
+    .stDataFrame .styled-data {
+        min-height: 20px !important;
+        display: inline-block !important;
     }
     
     /* Responsive Design */
@@ -1858,9 +2275,10 @@ def create_trading_intelligence_panel(selected_stock_data):
     # Replacing problematic f-string HTML that was showing as raw text
     
     signal_type = 'buy' if 'BUY' in signal else 'sell' if 'SELL' in signal else 'hold'
-    signal_color = '#10B981' if 'BUY' in signal else '#EF4444' if 'SELL' in signal else '#F59E0B'
+    sig_colors = get_signal_colors()
+    signal_color = sig_colors['positive'] if 'BUY' in signal else sig_colors['negative'] if 'SELL' in signal else sig_colors['neutral']
     confidence_level = selected_stock_data['Confidence']
-    confidence_color = '#10B981' if confidence_level > 0.7 else '#6B7280' if confidence_level > 0.5 else '#EF4444'
+    confidence_color = sig_colors['positive'] if confidence_level > 0.7 else sig_colors['neutral'] if confidence_level > 0.5 else sig_colors['negative']
     
     col1, col2 = st.columns(2)
     
@@ -2107,7 +2525,8 @@ def create_signal_breakdown_panel(selected_stock_data):
         score_class = "score-hold"
     
     # FIXED: Signal Score Display using Styleable Container (2024 Solution)
-    score_color = '#10B981' if score_class == "score-buy" else '#EF4444' if score_class == "score-sell" else '#F59E0B'
+    sig_colors = get_signal_colors()
+    score_color = sig_colors['positive'] if score_class == "score-buy" else sig_colors['negative'] if score_class == "score-sell" else sig_colors['neutral']
     
     with stylable_container(
         key="final_signal_score",
@@ -2169,7 +2588,8 @@ def create_signal_breakdown_panel(selected_stock_data):
         with col4:
             color_class = f"indicator-{contrib['color']}"
             # FIXED: Interpretation display using safe coloring (2024 Solution)
-            interp_color = '#10B981' if contrib['color'] == 'positive' else '#EF4444' if contrib['color'] == 'negative' else '#6B7280'
+            sig_colors = get_signal_colors()
+            interp_color = sig_colors['positive'] if contrib['color'] == 'positive' else sig_colors['negative'] if contrib['color'] == 'negative' else sig_colors['neutral']
             st.markdown(f'<span style="color: {interp_color}; font-weight: 500;">{contrib["interpretation"]}</span>', unsafe_allow_html=True)
     
     st.divider()
@@ -2505,7 +2925,7 @@ def create_interactive_charts_panel(selected_stock_data):
                 labels=['Wins', 'Losses'],
                 values=[win_rate, 1-win_rate],
                 hole=0.3,
-                marker_colors=['#10B981', '#EF4444']
+                marker_colors=[get_signal_colors()['positive'], get_signal_colors()['negative']]
             )])
             
             fig_winrate.update_layout(
@@ -2730,8 +3150,10 @@ def load_transparent_dashboard_data():
     """Load comprehensive data using database with parallel processing"""
     st.markdown("**🚀 Initializing High-Performance Data System...**")
     
-    # Initialize the data manager
-    data_manager = HistoricalDataManager()
+    # Initialize the data manager with caching to prevent excessive re-initialization
+    if 'data_manager' not in st.session_state:
+        st.session_state.data_manager = HistoricalDataManager()
+    data_manager = st.session_state.data_manager
     market_env = get_market_environment_data()
     symbols = get_top_stocks_symbols()
     
@@ -2819,13 +3241,16 @@ def load_transparent_dashboard_data():
             import os
             current_dir = os.path.dirname(os.path.abspath(__file__))
             parent_dir = os.path.dirname(current_dir)
-            if parent_dir not in sys.path:
-                sys.path.append(parent_dir)
+            root_dir = os.path.dirname(parent_dir)
+            if root_dir not in sys.path:
+                sys.path.append(root_dir)
             
-            from strategy.ensemble_signal_scoring import EnsembleSignalScorer
+            from src.strategy.ensemble_signal_scoring import EnsembleSignalScorer
             
-            # Initialize signal scorer
-            signal_scorer = EnsembleSignalScorer()
+            # Initialize signal scorer with caching to prevent excessive re-initialization
+            if 'signal_scorer' not in st.session_state:
+                st.session_state.signal_scorer = EnsembleSignalScorer()
+            signal_scorer = st.session_state.signal_scorer
             
             # Add signal columns to complete_data
             signal_columns = []
@@ -3027,14 +3452,15 @@ def main():
         vix_level = market_env.get('vix_level', 20.0)
         vix_env = market_env.get('vix_environment', 'Normal')
         
+        sig_colors = get_signal_colors()
         if vix_level > 25:
-            vix_color = "#EF4444"  # Red
+            vix_color = sig_colors['negative']  # Red for high volatility (bad)
             vix_delta_color = "inverse"
         elif vix_level < 20:
-            vix_color = "#10B981"  # Green
+            vix_color = sig_colors['positive']  # Green for low volatility (good)
             vix_delta_color = "normal"
         else:
-            vix_color = "#F59E0B"  # Amber
+            vix_color = sig_colors['neutral']  # Neutral for medium volatility
             vix_delta_color = "off"
         
         with stylable_container(
@@ -3066,13 +3492,13 @@ def main():
         fg_state = market_env.get('fear_greed_state', 'Neutral')
         
         if fear_greed < 25:
-            fg_color = "#EF4444"
+            fg_color = sig_colors['negative']  # Red for extreme fear (bad for market)
             fg_delta_color = "inverse"
         elif fear_greed > 75:
-            fg_color = "#10B981"
+            fg_color = sig_colors['positive']  # Green for extreme greed (good for market)
             fg_delta_color = "normal"
         else:
-            fg_color = "#F59E0B"
+            fg_color = get_signal_colors()['neutral']
             fg_delta_color = "off"
         
         with stylable_container(
@@ -3100,13 +3526,13 @@ def main():
         breadth_health = market_env.get('breadth_health', 'Moderate')
         
         if breadth_health == 'Healthy':
-            breadth_color = "#10B981"
+            breadth_color = get_signal_colors()['positive']
             breadth_delta_color = "normal"
         elif breadth_health == 'Moderate':
-            breadth_color = "#F59E0B"
+            breadth_color = get_signal_colors()['neutral']
             breadth_delta_color = "off"
         else:
-            breadth_color = "#EF4444"
+            breadth_color = get_signal_colors()['negative']
             breadth_delta_color = "inverse"
         
         with stylable_container(
@@ -3168,7 +3594,7 @@ def main():
             }
             div[data-testid="stMetricValue"] {
                 font-size: 1.25rem;
-                color: #10B981;
+                color: #22C55E;
                 font-weight: 600;
             }
             """,
@@ -3180,11 +3606,11 @@ def main():
         market_stress = market_env.get('market_stress', 0)
         
         if market_stress > 60:
-            stress_color = "#EF4444"
+            stress_color = get_signal_colors()['negative']
         elif market_stress > 30:
-            stress_color = "#F59E0B"
+            stress_color = get_signal_colors()['neutral']
         else:
-            stress_color = "#10B981"
+            stress_color = get_signal_colors()['positive']
         
         with stylable_container(
             key="stress_card",
@@ -3322,7 +3748,7 @@ def main():
             styled_df = apply_table_styling(display_df).set_table_styles([
                 {'selector': 'th', 'props': [
                     ('background-color', 'var(--bg-secondary, #F8FAFC)'),
-                    ('color', 'var(--text-secondary, #6B7280)'),
+                    ('color', 'var(--text-secondary, #64748B)'),
                     ('font-weight', '600'),
                     ('text-transform', 'uppercase'),
                     ('font-size', '0.75rem'),
@@ -3480,7 +3906,7 @@ def main():
                     styled_filtered_df = apply_table_styling(display_filtered_df).set_table_styles([
                         {'selector': 'th', 'props': [
                             ('background-color', 'var(--bg-secondary, #F8FAFC)'),
-                            ('color', 'var(--text-secondary, #6B7280)'),
+                            ('color', 'var(--text-secondary, #64748B)'),
                             ('font-weight', '600'),
                             ('text-transform', 'uppercase'),
                             ('font-size', '0.75rem'),
@@ -3654,10 +4080,15 @@ def main():
             
             # System Features
             st.markdown("### ⚙️ System Features")
-            st.markdown("""
-            <div style="background: var(--success-green-bg); padding: 1rem; border-radius: var(--radius-lg); margin-bottom: 1rem;">
-                <div style="color: var(--success-green); font-weight: 600; margin-bottom: 0.5rem;">✅ Professional Features</div>
-                <div style="font-size: 0.875rem; line-height: 1.4;">
+            
+            # Get theme-aware colors for the professional features box
+            theme_colors = get_theme_colors()
+            sig_colors = get_signal_colors()
+            
+            features_html = f"""
+            <div style="background: {theme_colors['background']}; border: 1px solid {sig_colors['positive']}; padding: 1rem; border-radius: 12px; margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <div style="color: {sig_colors['positive']}; font-weight: 600; margin-bottom: 0.5rem; font-size: 0.95rem;">✅ Professional Features</div>
+                <div style="color: {theme_colors['text_secondary']}; font-size: 0.875rem; line-height: 1.5;">
                     • Precise Entry/Exit Prices<br>
                     • Dynamic Position Sizing<br>
                     • Real-time Risk Management<br>
@@ -3666,7 +4097,8 @@ def main():
                     • Transparent Methodology
                 </div>
             </div>
-            """, unsafe_allow_html=True)
+            """
+            st.markdown(features_html, unsafe_allow_html=True)
             
             # Top Opportunities
             active_signals = signals_df[~signals_df['Signal'].str.contains('HOLD')].head(5)
@@ -3704,29 +4136,88 @@ def main():
             
             # System Weights Visualization
             st.markdown("### ⚖️ Signal Weights")
-            if len(signals_df) > 0:
-                weights = signals_df.iloc[0]['weights']
+            
+            # Create robust signal weights display with proper theme handling
+            try:
+                # Check if we have weights data
+                if len(signals_df) > 0 and 'weights' in signals_df.columns:
+                    try:
+                        weights_data = signals_df.iloc[0]['weights']
+                        if isinstance(weights_data, dict) and len(weights_data) > 0:
+                            weights = weights_data
+                        else:
+                            weights = None
+                    except (KeyError, IndexError):
+                        weights = None
+                else:
+                    weights = None
                 
-                weights_html = """
-                <div style="background: var(--bg-card); padding: 1rem; border-radius: var(--radius-lg); border: 1px solid #E5E7EB;">
-                """
+                # Use fallback weights if no data
+                if not weights:
+                    weights = {
+                        'rsi_14': 0.25,
+                        'macd': 0.15, 
+                        'moving_average': 0.18,
+                        'volume': 0.12,
+                        'volatility': 0.10,
+                        'momentum': 0.15,
+                        'support_resistance': 0.05
+                    }
                 
+                # Get current theme - check if we're in dark mode by examining config
+                is_dark_mode = (
+                    hasattr(st, '_config') and 
+                    getattr(st._config, 'get_option', lambda x: False)('theme.base') == 'dark'
+                ) or detect_theme() == 'dark'
+                
+                # Force dark theme colors if in dark mode, otherwise light
+                theme = 'dark' if is_dark_mode else 'light'
+                theme_colors = get_theme_colors(theme)
+                sig_colors = get_signal_colors(theme)
+                
+                # Display weights as a clean table instead of HTML to avoid rendering issues
+                st.markdown("**Current Signal Weights:**")
+                
+                weight_data = []
                 for indicator, weight in weights.items():
-                    color = "var(--primary-blue)" if weight > 0.2 else "var(--success-green)" if weight > 0.15 else "var(--warning-amber)"
-                    weights_html += f"""
-                    <div style="margin-bottom: 0.75rem;">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
-                            <span style="font-size: 0.875rem; font-weight: 500; color: var(--text-primary);">{indicator.upper()}</span>
-                            <span class="data-display" style="color: {color}; font-weight: 600;">{weight:.1%}</span>
-                        </div>
-                        <div class="progress-container" style="height: 6px;">
-                            <div class="progress-bar" style="background: {color}; width: {weight*500:.0f}%;"></div>
-                        </div>
-                    </div>
-                    """
+                    # Clean up indicator names
+                    clean_name = indicator.replace('_', ' ').upper()
+                    weight_data.append({
+                        'Indicator': clean_name,
+                        'Weight': f"{weight:.1%}",
+                        'Importance': '🟢 High' if weight > 0.2 else '🔵 Medium' if weight > 0.15 else '⚪ Low'
+                    })
                 
-                weights_html += "</div>"
-                st.markdown(weights_html, unsafe_allow_html=True)
+                # Display as a dataframe for better compatibility
+                import pandas as pd
+                weights_df = pd.DataFrame(weight_data)
+                st.dataframe(weights_df, use_container_width=True, hide_index=True)
+                
+                # Add a simple progress-style display
+                st.markdown("**Weight Distribution:**")
+                for indicator, weight in weights.items():
+                    clean_name = indicator.replace('_', ' ').title()
+                    st.progress(min(weight * 5, 1.0), text=f"{clean_name}: {weight:.1%}")
+                
+            except Exception as e:
+                # Enhanced fallback display
+                st.info("⚖️ Signal weights are being calculated...")
+                st.markdown("**Default Signal Weights:**")
+                
+                default_weights = {
+                    'RSI 14': '25%',
+                    'MACD': '15%', 
+                    'Moving Average': '18%',
+                    'Volume': '12%',
+                    'Volatility': '10%',
+                    'Momentum': '15%',
+                    'Support/Resistance': '5%'
+                }
+                
+                for indicator, weight in default_weights.items():
+                    st.text(f"• {indicator}: {weight}")
+                
+                st.caption("⚠️ Live weights will load when data is available. Refresh to update.")
             
             # Quick Actions
             st.markdown("### 🚀 Quick Actions")
@@ -3766,7 +4257,7 @@ def main():
     # Footer
     st.divider()
     st.markdown(f"""
-    <div style='text-align: center; color: #666; font-size: 12px;'>
+    <div style='text-align: center; color: {get_theme_colors()['text_secondary']}; font-size: 12px;'>
     💰 <strong>Complete Trading Intelligence System</strong> | 
     Precise Entry/Exit Prices + Position Sizing + Market Timing | 
     {len(signals_df) if not signals_df.empty else 0} Stocks with Full Trading Plans | 

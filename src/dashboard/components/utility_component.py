@@ -222,7 +222,7 @@ class UtilityComponent(BaseComponent):
         Returns dict with macd_line, signal_line, and histogram
         """
         try:
-            prices = np.array(prices_tuple)
+            prices = pd.Series(prices_tuple)  # Convert to pandas Series
             if len(prices) < slow + signal:
                 return {'macd_line': 0.0, 'signal_line': 0.0, 'histogram': 0.0}
             
