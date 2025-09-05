@@ -1,0 +1,106 @@
+# Vertical Pod Autoscaler for automatic resource recommendation and adjustment
+# Note: VPA requires the VPA controller to be installed in the cluster
+
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: data-service-vpa
+  namespace: signal-trading
+  labels:
+    app: data-service
+    component: autoscaling
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: data-service
+  updatePolicy:
+    updateMode: "Auto"  # Can be "Off", "Initial", or "Auto"
+  resourcePolicy:
+    containerPolicies:
+    - containerName: data-service
+      maxAllowed:
+        cpu: "1"
+        memory: "1Gi"
+      minAllowed:
+        cpu: "100m"
+        memory: "128Mi"
+      controlledResources: ["cpu", "memory"]
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: gateway-service-vpa
+  namespace: signal-trading
+  labels:
+    app: gateway-service
+    component: autoscaling
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: gateway-service
+  updatePolicy:
+    updateMode: "Auto"
+  resourcePolicy:
+    containerPolicies:
+    - containerName: gateway-service
+      maxAllowed:
+        cpu: "1"
+        memory: "512Mi"
+      minAllowed:
+        cpu: "50m"
+        memory: "64Mi"
+      controlledResources: ["cpu", "memory"]
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: signal-service-vpa
+  namespace: signal-trading
+  labels:
+    app: signal-service
+    component: autoscaling
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: signal-service
+  updatePolicy:
+    updateMode: "Initial"  # Only set resources on pod creation
+  resourcePolicy:
+    containerPolicies:
+    - containerName: signal-service
+      maxAllowed:
+        cpu: "2"
+        memory: "2Gi"
+      minAllowed:
+        cpu: "200m"
+        memory: "256Mi"
+      controlledResources: ["cpu", "memory"]
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: ml-service-vpa
+  namespace: signal-trading
+  labels:
+    app: ml-service
+    component: autoscaling
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ml-service
+  updatePolicy:
+    updateMode: "Auto"
+  resourcePolicy:
+    containerPolicies:
+    - containerName: ml-service
+      maxAllowed:
+        cpu: "4"
+        memory: "4Gi"
+      minAllowed:
+        cpu: "500m"
+        memory: "512Mi"
+      controlledResources: ["cpu", "memory"]

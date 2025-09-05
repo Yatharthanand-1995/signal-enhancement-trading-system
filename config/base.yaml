@@ -1,0 +1,156 @@
+# Base Configuration
+# Common settings shared across all environments
+
+application:
+  name: "Signal Trading System"
+  version: "2.0.0"
+  description: "Advanced algorithmic trading system with ML-driven signals"
+  
+logging:
+  level: "INFO"
+  format: "[%(asctime)s] %(levelname)s - %(name)s - %(message)s"
+  handlers:
+    - type: "console"
+      level: "INFO"
+    - type: "file"
+      level: "DEBUG"
+      filename: "logs/app.log"
+      max_bytes: 10485760  # 10MB
+      backup_count: 5
+  
+database:
+  # Hot data (Redis) - Real-time signals and prices
+  hot_data:
+    type: "redis"
+    host: "localhost"
+    port: 6379
+    db: 0
+    ttl_seconds: 3600
+    connection_pool_size: 10
+    
+  # Warm data (PostgreSQL) - Recent indicators and features  
+  warm_data:
+    type: "postgresql"
+    host: "localhost"
+    port: 5432
+    database: "trading_warm"
+    pool_size: 20
+    max_overflow: 30
+    pool_timeout: 30
+    
+  # Cold data (SQLite) - Historical archives
+  cold_data:
+    type: "sqlite"
+    database: "data/historical.db"
+    timeout: 30
+    check_same_thread: false
+    
+ml_models:
+  # Model registry settings
+  registry:
+    storage_path: "models/"
+    version_format: "v{major}.{minor}.{patch}"
+    max_versions_per_model: 5
+    
+  # Ensemble settings
+  ensemble:
+    max_models: 5
+    min_models: 2
+    rebalance_frequency_hours: 6
+    performance_window_hours: 24
+    
+  # Performance monitoring
+  monitoring:
+    accuracy_threshold: 0.75
+    drift_threshold: 0.15
+    error_rate_threshold: 0.10
+    data_quality_threshold: 0.80
+    window_size: 100
+    
+trading:
+  # Risk management
+  risk:
+    max_position_size: 0.05  # 5% of portfolio per position
+    max_portfolio_risk: 0.20  # 20% maximum portfolio risk
+    stop_loss_pct: 0.08  # 8% stop loss
+    take_profit_pct: 0.15  # 15% take profit
+    
+  # Signal processing
+  signals:
+    min_confidence: 0.60
+    signal_timeout_hours: 24
+    max_signals_per_day: 50
+    
+  # Portfolio settings
+  portfolio:
+    rebalance_frequency: "daily"
+    cash_buffer_pct: 0.05  # 5% cash buffer
+    transaction_cost_pct: 0.001  # 0.1% transaction cost
+    
+data_sources:
+  # Market data
+  market_data:
+    primary_provider: "alpha_vantage"
+    backup_provider: "yahoo_finance"
+    update_frequency: "1min"
+    symbols_per_request: 5
+    rate_limit_per_minute: 500
+    
+  # Technical indicators
+  indicators:
+    update_frequency: "5min"
+    lookback_periods:
+      short: 14
+      medium: 50
+      long: 200
+      
+performance:
+  # Caching settings
+  cache:
+    enabled: true
+    ttl_seconds: 300
+    max_size: 1000
+    
+  # API settings  
+  api:
+    timeout_seconds: 30
+    retry_attempts: 3
+    retry_delay_seconds: 1
+    
+  # Threading
+  threading:
+    max_workers: 4
+    pool_timeout: 30
+    
+monitoring:
+  # Health checks
+  health_check:
+    enabled: true
+    interval_seconds: 60
+    endpoints:
+      - name: "database"
+        type: "database"
+      - name: "redis"
+        type: "redis"
+      - name: "ml_models"
+        type: "ml_service"
+        
+  # Metrics collection
+  metrics:
+    enabled: true
+    collection_interval_seconds: 30
+    retention_days: 30
+    
+alerts:
+  # Default alert settings
+  default_channels: ["console"]
+  cooldown_minutes: 30
+  escalation_minutes: 60
+  
+  # Severity levels
+  severity_levels:
+    - "info"
+    - "low" 
+    - "medium"
+    - "high"
+    - "critical"

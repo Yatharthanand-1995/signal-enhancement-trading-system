@@ -1,0 +1,208 @@
+# Velero backup configuration for disaster recovery
+# Note: Velero must be installed in the cluster first
+
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: signal-trading-daily-backup
+  namespace: velero
+  labels:
+    app: velero
+    component: backup
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM UTC
+  template:
+    metadata:
+      labels:
+        backup-type: scheduled
+        frequency: daily
+    spec:
+      includedNamespaces:
+      - signal-trading
+      - signal-trading-monitoring
+      excludedResources:
+      - events
+      - events.events.k8s.io
+      - backups.velero.io
+      - restores.velero.io
+      ttl: 720h0m0s  # 30 days retention
+      storageLocation: default
+      volumeSnapshotLocations:
+      - default
+      hooks:
+        resources:
+        - name: data-service-backup-hook
+          includedNamespaces:
+          - signal-trading
+          labelSelector:
+            matchLabels:
+              app: data-service
+          pre:
+          - exec:
+              command:
+              - /bin/bash
+              - -c
+              - |
+                echo "Starting database backup pre-hook"
+                # Create database backup before Velero backup
+                sqlite3 /data/service.db ".backup /data/backup_$(date +%Y%m%d_%H%M%S).db"
+                echo "Database backup completed"
+          post:
+          - exec:
+              command:
+              - /bin/bash
+              - -c
+              - |
+                echo "Database backup post-hook completed"
+---
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: signal-trading-weekly-backup
+  namespace: velero
+  labels:
+    app: velero
+    component: backup
+spec:
+  schedule: "0 1 * * 0"  # Weekly on Sunday at 1 AM UTC
+  template:
+    metadata:
+      labels:
+        backup-type: scheduled
+        frequency: weekly
+    spec:
+      includedNamespaces:
+      - signal-trading
+      - signal-trading-monitoring
+      - kube-system
+      excludedResources:
+      - events
+      - events.events.k8s.io
+      ttl: 2160h0m0s  # 90 days retention
+      storageLocation: default
+      volumeSnapshotLocations:
+      - default
+---
+# Backup storage location (AWS S3 example)
+apiVersion: velero.io/v1
+kind: BackupStorageLocation
+metadata:
+  name: default
+  namespace: velero
+  labels:
+    component: backup-storage
+spec:
+  provider: aws
+  objectStorage:
+    bucket: signal-trading-backups
+    prefix: velero
+  config:
+    region: us-west-2
+    s3ForcePathStyle: "false"
+---
+# Volume snapshot location (AWS EBS example)
+apiVersion: velero.io/v1
+kind: VolumeSnapshotLocation
+metadata:
+  name: default
+  namespace: velero
+  labels:
+    component: volume-snapshots
+spec:
+  provider: aws
+  config:
+    region: us-west-2
+---
+# Pre-scheduled backup for critical configuration
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: config-backup
+  namespace: signal-trading
+  labels:
+    app: config-backup
+    component: backup
+spec:
+  schedule: "0 */6 * * *"  # Every 6 hours
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: config-backup-sa
+          containers:
+          - name: config-backup
+            image: bitnami/kubectl:latest
+            command:
+            - /bin/bash
+            - -c
+            - |
+              echo "Starting configuration backup..."
+              
+              # Create backup directory
+              mkdir -p /backup/$(date +%Y%m%d)
+              
+              # Backup ConfigMaps
+              kubectl get configmaps -n signal-trading -o yaml > /backup/$(date +%Y%m%d)/configmaps.yaml
+              
+              # Backup Secrets (metadata only, not values for security)
+              kubectl get secrets -n signal-trading -o yaml | grep -v "data:" > /backup/$(date +%Y%m%d)/secrets-metadata.yaml
+              
+              # Backup Service configurations
+              kubectl get services -n signal-trading -o yaml > /backup/$(date +%Y%m%d)/services.yaml
+              
+              # Backup Ingress configurations
+              kubectl get ingress -n signal-trading -o yaml > /backup/$(date +%Y%m%d)/ingress.yaml
+              
+              echo "Configuration backup completed"
+              
+              # Upload to S3 (if AWS CLI is configured)
+              if command -v aws &> /dev/null; then
+                aws s3 sync /backup/ s3://signal-trading-config-backups/
+                echo "Backup uploaded to S3"
+              fi
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /backup
+          volumes:
+          - name: backup-storage
+            emptyDir: {}
+          restartPolicy: OnFailure
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: config-backup-sa
+  namespace: signal-trading
+  labels:
+    component: backup
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: signal-trading
+  name: config-backup-role
+  labels:
+    component: backup
+rules:
+- apiGroups: [""]
+  resources: ["configmaps", "secrets", "services"]
+  verbs: ["get", "list"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingresses"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: config-backup-rolebinding
+  namespace: signal-trading
+  labels:
+    component: backup
+subjects:
+- kind: ServiceAccount
+  name: config-backup-sa
+  namespace: signal-trading
+roleRef:
+  kind: Role
+  name: config-backup-role
+  apiGroup: rbac.authorization.k8s.io

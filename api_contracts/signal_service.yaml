@@ -1,0 +1,471 @@
+openapi: 3.0.3
+info:
+  title: Signal Service API
+  description: Trading signal generation and processing service
+  version: 1.0.0
+  contact:
+    name: Signal Trading System
+    email: support@signaltrading.com
+
+servers:
+  - url: http://localhost:8002
+    description: Development server
+  - url: https://signal-service.signaltrading.com
+    description: Production server
+
+security:
+  - bearerAuth: []
+  - apiKeyAuth: []
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      tags:
+        - Health
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /metrics:
+    get:
+      summary: Prometheus metrics endpoint
+      tags:
+        - Monitoring
+      security: []
+      responses:
+        '200':
+          description: Metrics data
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /signals/generate:
+    post:
+      summary: Generate trading signals
+      description: Generate trading signals for specified symbols and strategies
+      tags:
+        - Signal Generation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignalRequest'
+      responses:
+        '200':
+          description: Signals generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignalResponse'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /signals/history/{symbol}:
+    get:
+      summary: Get signal history
+      description: Retrieve historical signals for a specific symbol
+      tags:
+        - Signal History
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "AAPL"
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: signal_type
+          in: query
+          schema:
+            type: string
+            example: "momentum"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+      responses:
+        '200':
+          description: Signal history retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignalHistoryResponse'
+
+  /signals/evaluate:
+    post:
+      summary: Evaluate signal performance
+      description: Evaluate the performance of specific signals
+      tags:
+        - Signal Analysis
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignalEvaluationRequest'
+      responses:
+        '200':
+          description: Signal evaluation completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignalEvaluationResponse'
+
+  /signals/types:
+    get:
+      summary: Get available signal types
+      description: List all available signal types and their configurations
+      tags:
+        - Signal Configuration
+      responses:
+        '200':
+          description: Available signal types
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignalTypesResponse'
+
+  /signals/strategies:
+    get:
+      summary: Get available strategies
+      description: List all available trading strategies
+      tags:
+        - Signal Configuration
+      responses:
+        '200':
+          description: Available strategies
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrategiesResponse'
+
+  /signals/real-time:
+    get:
+      summary: Real-time signal stream
+      description: WebSocket endpoint for real-time signal updates
+      tags:
+        - Real-time Signals
+      responses:
+        '101':
+          description: WebSocket connection established
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        service_name:
+          type: string
+          example: "signal-service"
+        status:
+          type: string
+          enum: [healthy, unhealthy, degraded]
+        version:
+          type: string
+          example: "1.0.0"
+        timestamp:
+          type: string
+          format: date-time
+        dependencies:
+          type: object
+          additionalProperties:
+            type: string
+            enum: [healthy, unhealthy]
+
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [error]
+        error_code:
+          type: string
+        error_message:
+          type: string
+        details:
+          type: object
+        timestamp:
+          type: string
+          format: date-time
+        request_id:
+          type: string
+
+    SignalRequest:
+      type: object
+      required:
+        - symbols
+      properties:
+        symbols:
+          type: array
+          items:
+            type: string
+          example: ["AAPL", "GOOGL", "MSFT"]
+        signal_types:
+          type: array
+          items:
+            type: string
+          example: ["momentum", "mean_reversion", "volume"]
+          default: []
+        lookback_period:
+          type: integer
+          minimum: 1
+          maximum: 365
+          default: 30
+        parameters:
+          type: object
+          description: Strategy-specific parameters
+
+    Signal:
+      type: object
+      required:
+        - id
+        - symbol
+        - signal_type
+        - strength
+        - confidence
+        - timestamp
+      properties:
+        id:
+          type: string
+          example: "sig_123456789"
+        symbol:
+          type: string
+          example: "AAPL"
+        signal_type:
+          type: string
+          example: "momentum"
+        strength:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: "Signal strength between 0 and 1"
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: "Confidence level between 0 and 1"
+        direction:
+          type: string
+          enum: [buy, sell, hold]
+        timestamp:
+          type: string
+          format: date-time
+        expiry:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+          properties:
+            source:
+              type: string
+            model_version:
+              type: string
+            features:
+              type: object
+
+    SignalResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [success]
+        signals:
+          type: array
+          items:
+            $ref: '#/components/schemas/Signal'
+        metadata:
+          type: object
+          properties:
+            total_signals:
+              type: integer
+            processing_time_ms:
+              type: number
+            model_versions:
+              type: object
+
+    SignalHistoryResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [success]
+        signals:
+          type: array
+          items:
+            $ref: '#/components/schemas/Signal'
+        pagination:
+          type: object
+          properties:
+            page:
+              type: integer
+            page_size:
+              type: integer
+            total_count:
+              type: integer
+            has_next:
+              type: boolean
+
+    SignalEvaluationRequest:
+      type: object
+      required:
+        - signal_ids
+      properties:
+        signal_ids:
+          type: array
+          items:
+            type: string
+        evaluation_period_days:
+          type: integer
+          minimum: 1
+          default: 30
+        metrics:
+          type: array
+          items:
+            type: string
+          example: ["accuracy", "return", "sharpe_ratio"]
+
+    SignalEvaluationResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [success]
+        evaluation_results:
+          type: object
+          properties:
+            overall_metrics:
+              type: object
+              properties:
+                accuracy:
+                  type: number
+                  format: float
+                total_return:
+                  type: number
+                  format: float
+                sharpe_ratio:
+                  type: number
+                  format: float
+                win_rate:
+                  type: number
+                  format: float
+                avg_return_per_signal:
+                  type: number
+                  format: float
+            signal_breakdown:
+              type: array
+              items:
+                type: object
+                properties:
+                  signal_id:
+                    type: string
+                  symbol:
+                    type: string
+                  signal_type:
+                    type: string
+                  accuracy:
+                    type: number
+                  return:
+                    type: number
+                  duration_held_hours:
+                    type: number
+
+    SignalTypesResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [success]
+        signal_types:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              description:
+                type: string
+              parameters:
+                type: object
+              default_config:
+                type: object
+              performance_stats:
+                type: object
+
+    StrategiesResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [success]
+        strategies:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              description:
+                type: string
+              signal_types:
+                type: array
+                items:
+                  type: string
+              risk_level:
+                type: string
+                enum: [low, medium, high]
+              expected_return:
+                type: number
+              max_drawdown:
+                type: number
+
+tags:
+  - name: Health
+    description: Service health and status endpoints
+  - name: Monitoring
+    description: Metrics and monitoring endpoints
+  - name: Signal Generation
+    description: Signal generation and processing
+  - name: Signal History
+    description: Historical signal data retrieval
+  - name: Signal Analysis
+    description: Signal performance analysis and evaluation
+  - name: Signal Configuration
+    description: Signal types and strategy configuration
+  - name: Real-time Signals
+    description: Real-time signal streaming

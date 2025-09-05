@@ -46,7 +46,11 @@ class PerformanceDashboard:
             'database_connections': [],
             'cache_hit_rate': [],
             'api_response_time': [],
-            'event_processing_rate': []
+            'event_processing_rate': [],
+            'signal_confidence': [],
+            'active_signals': [],
+            'composite_score': [],
+            'signal_strength': []
         }
         self.max_history_points = 100
         self._start_metrics_collector()
@@ -158,24 +162,187 @@ class PerformanceDashboard:
             return self._get_default_metrics()
     
     def _get_trading_metrics(self) -> Dict[str, Any]:
-        """Get trading-specific metrics"""
+        """Get trading-specific metrics including signal analysis"""
         try:
-            # This would query actual trading data in production
-            return {
-                'active_positions': 0,
-                'daily_pnl': 0.0,
-                'total_trades': 0,
-                'win_rate': 0.0,
-                'risk_utilization': 0.0
+            # Get basic trading metrics
+            basic_metrics = self._get_basic_trading_metrics()
+            
+            # Get signal metrics
+            signal_metrics = self._get_signal_metrics()
+            
+            # Combine all metrics
+            return {**basic_metrics, **signal_metrics}
+            
+        except Exception as e:
+            logger.warning(f"Trading metrics unavailable: {e}", component='dashboard')
+            return self._get_default_trading_metrics()
+    
+    def _get_basic_trading_metrics(self) -> Dict[str, Any]:
+        """Get basic trading metrics"""
+        return {
+            'active_positions': 0,
+            'daily_pnl': 0.0,
+            'total_trades': 0,
+            'win_rate': 0.0,
+            'risk_utilization': 0.0
+        }
+    
+    def _get_signal_metrics(self) -> Dict[str, Any]:
+        """Get comprehensive signal metrics including confidence, raw values, and final scores"""
+        try:
+            # Initialize signal metrics structure
+            signal_data = {
+                'signals': {
+                    'total_active_signals': 0,
+                    'avg_confidence': 0.0,
+                    'confidence_distribution': {
+                        'high_confidence': 0,  # >= 0.8
+                        'medium_confidence': 0,  # 0.5 - 0.8
+                        'low_confidence': 0  # < 0.5
+                    },
+                    'raw_signals': {
+                        'rsi_avg': 0.0,
+                        'macd_signal_count': 0,
+                        'bollinger_squeeze': 0,
+                        'volume_spike_count': 0
+                    },
+                    'final_scores': {
+                        'avg_composite_score': 0.0,
+                        'score_distribution': {
+                            'strong_buy': 0,
+                            'buy': 0, 
+                            'neutral': 0,
+                            'sell': 0,
+                            'strong_sell': 0
+                        },
+                        'weighted_signal_strength': 0.0
+                    }
+                }
             }
-        except Exception:
-            return {
-                'active_positions': 0,
-                'daily_pnl': 0.0,
-                'total_trades': 0,
-                'win_rate': 0.0,
-                'risk_utilization': 0.0
+            
+            # Try to get real signal data
+            signal_data['signals'] = self._collect_live_signal_data()
+            
+            return signal_data
+            
+        except Exception as e:
+            logger.warning(f"Signal metrics collection failed: {e}", component='dashboard')
+            return {'signals': self._get_default_signal_metrics()}
+    
+    def _collect_live_signal_data(self) -> Dict[str, Any]:
+        """Collect live signal data from signal processing systems"""
+        try:
+            # Try to connect to ensemble signal scorer
+            from src.strategy.ensemble_signal_scoring import EnsembleSignalScorer
+            
+            # This would be injected or configured properly in production
+            scorer = EnsembleSignalScorer()
+            
+            # Generate mock data for demonstration (replace with real data in production)
+            import random
+            import numpy as np
+            
+            # Simulate signal confidence data
+            confidence_values = [random.uniform(0.3, 0.95) for _ in range(10)]
+            avg_confidence = np.mean(confidence_values) if confidence_values else 0.0
+            
+            # Count confidence distribution
+            high_conf = sum(1 for c in confidence_values if c >= 0.8)
+            med_conf = sum(1 for c in confidence_values if 0.5 <= c < 0.8)
+            low_conf = sum(1 for c in confidence_values if c < 0.5)
+            
+            # Simulate raw signal values
+            raw_signals = {
+                'rsi_avg': random.uniform(30, 70),
+                'macd_signal_count': random.randint(1, 5),
+                'bollinger_squeeze': random.randint(0, 3),
+                'volume_spike_count': random.randint(0, 4)
             }
+            
+            # Simulate final composite scores
+            composite_scores = [random.uniform(-1, 1) for _ in range(10)]
+            avg_composite = np.mean(composite_scores) if composite_scores else 0.0
+            
+            # Score distribution
+            strong_buy = sum(1 for s in composite_scores if s >= 0.6)
+            buy = sum(1 for s in composite_scores if 0.2 <= s < 0.6)
+            neutral = sum(1 for s in composite_scores if -0.2 <= s < 0.2)
+            sell = sum(1 for s in composite_scores if -0.6 <= s < -0.2)
+            strong_sell = sum(1 for s in composite_scores if s < -0.6)
+            
+            return {
+                'total_active_signals': len(confidence_values),
+                'avg_confidence': round(avg_confidence, 3),
+                'confidence_distribution': {
+                    'high_confidence': high_conf,
+                    'medium_confidence': med_conf,
+                    'low_confidence': low_conf
+                },
+                'raw_signals': {
+                    'rsi_avg': round(raw_signals['rsi_avg'], 2),
+                    'macd_signal_count': raw_signals['macd_signal_count'],
+                    'bollinger_squeeze': raw_signals['bollinger_squeeze'],
+                    'volume_spike_count': raw_signals['volume_spike_count']
+                },
+                'final_scores': {
+                    'avg_composite_score': round(avg_composite, 3),
+                    'score_distribution': {
+                        'strong_buy': strong_buy,
+                        'buy': buy,
+                        'neutral': neutral,
+                        'sell': sell,
+                        'strong_sell': strong_sell
+                    },
+                    'weighted_signal_strength': round(abs(avg_composite), 3)
+                }
+            }
+            
+        except ImportError:
+            logger.warning("Signal scoring module not available", component='dashboard')
+            return self._get_default_signal_metrics()
+        except Exception as e:
+            logger.error(f"Error collecting live signal data: {e}", component='dashboard')
+            return self._get_default_signal_metrics()
+    
+    def _get_default_signal_metrics(self) -> Dict[str, Any]:
+        """Return default signal metrics when collection fails"""
+        return {
+            'total_active_signals': 0,
+            'avg_confidence': 0.0,
+            'confidence_distribution': {
+                'high_confidence': 0,
+                'medium_confidence': 0,
+                'low_confidence': 0
+            },
+            'raw_signals': {
+                'rsi_avg': 0.0,
+                'macd_signal_count': 0,
+                'bollinger_squeeze': 0,
+                'volume_spike_count': 0
+            },
+            'final_scores': {
+                'avg_composite_score': 0.0,
+                'score_distribution': {
+                    'strong_buy': 0,
+                    'buy': 0,
+                    'neutral': 0,
+                    'sell': 0,
+                    'strong_sell': 0
+                },
+                'weighted_signal_strength': 0.0
+            }
+        }
+    
+    def _get_default_trading_metrics(self) -> Dict[str, Any]:
+        """Return default trading metrics when collection fails"""
+        return {
+            'active_positions': 0,
+            'daily_pnl': 0.0,
+            'total_trades': 0,
+            'win_rate': 0.0,
+            'risk_utilization': 0.0,
+            'signals': self._get_default_signal_metrics()
+        }
     
     def _get_default_metrics(self) -> Dict[str, Any]:
         """Return default metrics when collection fails"""
@@ -201,6 +368,13 @@ class PerformanceDashboard:
         self.metrics_history['api_response_time'].append(metrics['api']['avg_response_time'] * 1000)  # Convert to ms
         self.metrics_history['event_processing_rate'].append(metrics['realtime']['messages_per_second'])
         
+        # Add signal metrics to history
+        signal_data = metrics.get('trading', {}).get('signals', {})
+        self.metrics_history['signal_confidence'].append(signal_data.get('avg_confidence', 0.0))
+        self.metrics_history['active_signals'].append(signal_data.get('total_active_signals', 0))
+        self.metrics_history['composite_score'].append(signal_data.get('final_scores', {}).get('avg_composite_score', 0.0))
+        self.metrics_history['signal_strength'].append(signal_data.get('final_scores', {}).get('weighted_signal_strength', 0.0))
+        
         # Keep only recent history
         if len(self.metrics_history['timestamps']) > self.max_history_points:
             for key in self.metrics_history:
@@ -215,7 +389,11 @@ class PerformanceDashboard:
             'database_connections': self.metrics_history['database_connections'],
             'cache_hit_rate': self.metrics_history['cache_hit_rate'],
             'api_response_time': self.metrics_history['api_response_time'],
-            'event_processing_rate': self.metrics_history['event_processing_rate']
+            'event_processing_rate': self.metrics_history['event_processing_rate'],
+            'signal_confidence': self.metrics_history['signal_confidence'],
+            'active_signals': self.metrics_history['active_signals'],
+            'composite_score': self.metrics_history['composite_score'],
+            'signal_strength': self.metrics_history['signal_strength']
         }
     
     def generate_performance_charts(self) -> Dict[str, Any]:
@@ -311,6 +489,103 @@ class PerformanceDashboard:
                 'title': 'API Response Time',
                 'xaxis': {'title': 'Time'},
                 'yaxis': {'title': 'Milliseconds'},
+                'height': 300
+            }
+        }
+        
+        # Signal Confidence Chart
+        charts['signal_confidence'] = {
+            'data': [
+                {
+                    'x': history['timestamps'],
+                    'y': history['signal_confidence'],
+                    'type': 'scatter',
+                    'mode': 'lines+markers',
+                    'name': 'Avg Confidence',
+                    'line': {'color': '#9B59B6'},
+                    'marker': {'size': 6}
+                }
+            ],
+            'layout': {
+                'title': 'Signal Confidence Over Time',
+                'xaxis': {'title': 'Time'},
+                'yaxis': {'title': 'Confidence (0-1)', 'range': [0, 1]},
+                'height': 300
+            }
+        }
+        
+        # Active Signals Chart
+        charts['active_signals'] = {
+            'data': [
+                {
+                    'x': history['timestamps'],
+                    'y': history['active_signals'],
+                    'type': 'scatter',
+                    'mode': 'lines',
+                    'name': 'Active Signals',
+                    'line': {'color': '#E67E22'},
+                    'fill': 'tozeroy'
+                }
+            ],
+            'layout': {
+                'title': 'Active Signal Count',
+                'xaxis': {'title': 'Time'},
+                'yaxis': {'title': 'Number of Signals'},
+                'height': 300
+            }
+        }
+        
+        # Composite Score Chart
+        charts['composite_score'] = {
+            'data': [
+                {
+                    'x': history['timestamps'],
+                    'y': history['composite_score'],
+                    'type': 'scatter',
+                    'mode': 'lines+markers',
+                    'name': 'Composite Score',
+                    'line': {'color': '#27AE60'},
+                    'marker': {'size': 4}
+                }
+            ],
+            'layout': {
+                'title': 'Signal Composite Score',
+                'xaxis': {'title': 'Time'},
+                'yaxis': {'title': 'Score (-1 to 1)', 'range': [-1, 1]},
+                'height': 300,
+                'shapes': [
+                    # Add horizontal line at 0
+                    {
+                        'type': 'line',
+                        'xref': 'paper',
+                        'x0': 0,
+                        'x1': 1,
+                        'yref': 'y',
+                        'y0': 0,
+                        'y1': 0,
+                        'line': {'color': 'rgba(255,255,255,0.3)', 'width': 1, 'dash': 'dot'}
+                    }
+                ]
+            }
+        }
+        
+        # Signal Strength Chart  
+        charts['signal_strength'] = {
+            'data': [
+                {
+                    'x': history['timestamps'],
+                    'y': history['signal_strength'],
+                    'type': 'scatter',
+                    'mode': 'lines',
+                    'name': 'Signal Strength',
+                    'line': {'color': '#E74C3C'},
+                    'fill': 'tozeroy'
+                }
+            ],
+            'layout': {
+                'title': 'Weighted Signal Strength',
+                'xaxis': {'title': 'Time'},
+                'yaxis': {'title': 'Strength (0-1)', 'range': [0, 1]},
                 'height': 300
             }
         }

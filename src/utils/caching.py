@@ -63,11 +63,16 @@ class CacheManager:
         """Initialize Redis connection with error handling"""
         try:
             redis_config = enhanced_config.redis
+            # Only set password if it's not empty
+            password = getattr(redis_config, 'password', '') or None
+            if password == '':
+                password = None
+                
             self._redis_client = redis.Redis(
                 host=redis_config.host,
                 port=redis_config.port,
                 db=redis_config.db,
-                password=getattr(redis_config, 'password', None),
+                password=password,
                 decode_responses=False,  # Handle binary data
                 socket_connect_timeout=5,
                 socket_timeout=5,

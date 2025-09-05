@@ -1,0 +1,97 @@
+# Development Environment Configuration
+# Settings optimized for development and testing
+
+logging:
+  level: "DEBUG"
+  handlers:
+    - type: "console"
+      level: "DEBUG"
+      colorize: true
+    - type: "file"
+      level: "DEBUG"
+      filename: "logs/dev.log"
+      
+database:
+  hot_data:
+    host: "localhost"
+    port: 6379
+    db: 1  # Use different DB for dev
+    
+  warm_data:
+    host: "localhost"
+    port: 5432
+    database: "trading_dev"
+    pool_size: 5
+    
+  cold_data:
+    database: "data/dev_historical.db"
+    
+ml_models:
+  # Relaxed thresholds for development
+  monitoring:
+    accuracy_threshold: 0.60
+    drift_threshold: 0.25
+    error_rate_threshold: 0.20
+    
+  # Faster rebalancing for testing
+  ensemble:
+    rebalance_frequency_hours: 1
+    performance_window_hours: 6
+    
+trading:
+  # Conservative settings for development
+  risk:
+    max_position_size: 0.02  # 2% for safety
+    max_portfolio_risk: 0.10  # 10% max risk
+    
+  signals:
+    min_confidence: 0.50  # Lower threshold for testing
+    max_signals_per_day: 20
+    
+data_sources:
+  market_data:
+    # Use demo/sandbox endpoints
+    primary_provider: "alpha_vantage_demo"
+    update_frequency: "5min"  # Less frequent for dev
+    rate_limit_per_minute: 100
+    
+performance:
+  cache:
+    ttl_seconds: 60  # Shorter TTL for development
+    max_size: 100
+    
+  threading:
+    max_workers: 2  # Fewer workers for dev machine
+    
+monitoring:
+  health_check:
+    interval_seconds: 30  # More frequent checks
+    
+  metrics:
+    collection_interval_seconds: 10
+    retention_days: 7
+    
+alerts:
+  default_channels: ["console", "file"]
+  cooldown_minutes: 5  # Shorter cooldown for testing
+  
+# Development-specific features
+development:
+  # Debug settings
+  debug_mode: true
+  profiling_enabled: false
+  mock_data_enabled: true
+  
+  # Testing settings
+  test_data:
+    symbols: ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"]
+    date_range:
+      start: "2023-01-01"
+      end: "2024-01-01"
+      
+  # Hot reload settings
+  hot_reload:
+    enabled: true
+    watched_directories:
+      - "src/"
+      - "config/"

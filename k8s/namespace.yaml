@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: signal-trading
+  labels:
+    name: signal-trading
+    environment: production
+    project: signal-trading-system
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: signal-trading-dev
+  labels:
+    name: signal-trading-dev
+    environment: development
+    project: signal-trading-system
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: signal-trading-monitoring
+  labels:
+    name: signal-trading-monitoring
+    environment: production
+    project: signal-trading-system
