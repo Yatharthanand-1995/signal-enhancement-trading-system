@@ -507,19 +507,23 @@ class EnsembleSignalScorer:
         abs_score = abs(composite_score)
         strength = min(1.0, abs_score * 2)  # Scale to 0-1
         
-        # FIXED: Properly calibrated thresholds for realistic signal diversity
-        # Empirical analysis shows most scores range -0.3 to +0.3
-        # Setting higher thresholds to prevent "everything is STRONG_BUY" issue
-        if composite_score > 0.6:
+        # REVISED: More balanced thresholds for better signal diversity
+        # Analysis shows we need lower thresholds to capture meaningful signals
+        # while still avoiding "everything is STRONG_BUY" issue
+        if composite_score > 0.4:
             direction = SignalDirection.STRONG_BUY
-        elif composite_score > 0.3:
+        elif composite_score > 0.15:
             direction = SignalDirection.BUY
-        elif composite_score < -0.6:
+        elif composite_score < -0.4:
             direction = SignalDirection.STRONG_SELL
-        elif composite_score < -0.3:
+        elif composite_score < -0.15:
             direction = SignalDirection.SELL
         else:
             direction = SignalDirection.NEUTRAL
+        
+        # Debug logging for threshold tuning
+        if abs(composite_score) > 0.1:  # Only log non-trivial scores
+            logger.debug(f"Signal threshold check - Score: {composite_score:.3f}, Direction: {direction.name}")
         
         return composite_score, direction, strength
     
