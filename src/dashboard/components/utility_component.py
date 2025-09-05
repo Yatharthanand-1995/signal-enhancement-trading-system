@@ -22,17 +22,17 @@ class UtilityComponent(BaseComponent):
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__("UtilityComponent", config)
         
-        # Color scheme configuration
+        # Color scheme configuration - WCAG AA compliant colors matching main.py
         self.colors = {
-            'strong_buy': '#10B981',      # Green
-            'buy': '#34D399',             # Light green
-            'neutral': '#6B7280',         # Gray
-            'sell': '#F87171',            # Light red
-            'strong_sell': '#EF4444',     # Red
-            'warning': '#F59E0B',         # Amber
-            'high_confidence': '#10B981',  # Green
-            'medium_confidence': '#F59E0B', # Amber
-            'low_confidence': '#EF4444',   # Red
+            'strong_buy': '#16A34A',      # --success-green (4.89:1)
+            'buy': '#15803D',             # --success-green-light (5.77:1)
+            'neutral': '#475569',         # --neutral-gray (7.72:1)
+            'sell': '#B91C1C',            # --danger-red-light (7.73:1)
+            'strong_sell': '#DC2626',     # --danger-red (5.93:1)
+            'warning': '#D97706',         # --warning-amber (6.26:1)
+            'high_confidence': '#16A34A',  # --success-green
+            'medium_confidence': '#D97706', # --warning-amber
+            'low_confidence': '#DC2626',   # --danger-red
         }
     
     def render(self, **kwargs) -> Any:
@@ -50,17 +50,17 @@ class UtilityComponent(BaseComponent):
         try:
             val_str = str(val)
             if 'STRONG_BUY' in val_str:
-                return 'background: var(--success-green, #10B981); color: white; padding: 4px 8px; border-radius: 6px; font-weight: 600;'
+                return 'background: var(--success-green, #16A34A); color: white; padding: 4px 8px; border-radius: 6px; font-weight: 600;'
             elif 'BUY' in val_str:
-                return 'background: var(--success-green-light, #34D399); color: white; padding: 4px 8px; border-radius: 6px; font-weight: 600;'
+                return 'background: var(--success-green-light, #15803D); color: white; padding: 4px 8px; border-radius: 6px; font-weight: 600;'
             elif 'STRONG_SELL' in val_str:
-                return 'background: var(--danger-red, #EF4444); color: white; padding: 4px 8px; border-radius: 6px; font-weight: 600;'
+                return 'background: var(--danger-red, #DC2626); color: white; padding: 4px 8px; border-radius: 6px; font-weight: 600;'
             elif 'SELL' in val_str:
-                return 'background: var(--danger-red-light, #F87171); color: white; padding: 4px 8px; border-radius: 6px; font-weight: 600;'
+                return 'background: var(--danger-red-light, #B91C1C); color: white; padding: 4px 8px; border-radius: 6px; font-weight: 600;'
             elif 'Strong' in val_str:
-                return 'background: var(--warning-amber, #F59E0B); color: white; padding: 4px 8px; border-radius: 6px; font-weight: 600;'
+                return 'background: var(--warning-amber, #D97706); color: white; padding: 4px 8px; border-radius: 6px; font-weight: 600;'
             else:
-                return 'background: var(--neutral-gray, #6B7280); color: white; padding: 4px 8px; border-radius: 6px; font-weight: 600;'
+                return 'background: var(--neutral-gray, #475569); color: white; padding: 4px 8px; border-radius: 6px; font-weight: 600;'
         except Exception:
             return 'color: var(--text-primary, #111827);'
     
@@ -75,13 +75,13 @@ class UtilityComponent(BaseComponent):
             ratio = float(val) if not isinstance(val, (int, float)) else val
             
             if ratio >= 3.0:
-                return 'background: var(--success-green, #10B981); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
+                return 'background: var(--success-green, #16A34A); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
             elif ratio >= 2.0:
-                return 'background: var(--success-green-light, #34D399); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
+                return 'background: var(--success-green-light, #15803D); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
             elif ratio >= 1.5:
-                return 'background: var(--warning-amber, #F59E0B); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
+                return 'background: var(--warning-amber, #D97706); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
             else:
-                return 'background: var(--danger-red, #EF4444); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
+                return 'background: var(--danger-red, #DC2626); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
         except (ValueError, TypeError):
             return 'color: var(--text-secondary, #6B7280);'
     
@@ -96,11 +96,11 @@ class UtilityComponent(BaseComponent):
             confidence = float(val) if not isinstance(val, (int, float)) else val
             
             if confidence >= 0.8:
-                return 'background: var(--success-green, #10B981); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
+                return 'background: var(--success-green, #16A34A); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
             elif confidence >= 0.6:
-                return 'background: var(--warning-amber, #F59E0B); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
+                return 'background: var(--warning-amber, #D97706); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
             else:
-                return 'background: var(--danger-red, #EF4444); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
+                return 'background: var(--danger-red, #DC2626); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
         except (ValueError, TypeError):
             return 'color: var(--text-secondary, #6B7280);'
     
@@ -115,13 +115,13 @@ class UtilityComponent(BaseComponent):
             rsi = float(val) if not isinstance(val, (int, float)) else val
             
             if rsi >= 80:
-                return 'background: var(--danger-red, #EF4444); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'  # Overbought
+                return 'background: var(--danger-red, #DC2626); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'  # Overbought
             elif rsi >= 70:
-                return 'background: var(--warning-amber, #F59E0B); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
+                return 'background: var(--warning-amber, #D97706); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
             elif rsi <= 20:
-                return 'background: var(--success-green, #10B981); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'  # Oversold
+                return 'background: var(--success-green, #16A34A); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'  # Oversold
             elif rsi <= 30:
-                return 'background: var(--success-green-light, #34D399); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
+                return 'background: var(--success-green-light, #15803D); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
             else:
                 return 'color: var(--text-primary, #111827);'
         except (ValueError, TypeError):
@@ -139,9 +139,9 @@ class UtilityComponent(BaseComponent):
             
             # High volume (above average) - important for signal confirmation
             if volume >= 2000000:
-                return 'background: var(--success-green, #10B981); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
+                return 'background: var(--success-green, #16A34A); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
             elif volume >= 1000000:
-                return 'background: var(--warning-amber, #F59E0B); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
+                return 'background: var(--warning-amber, #D97706); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
             else:
                 return 'color: var(--text-primary, #111827);'
         except (ValueError, TypeError):
@@ -158,9 +158,9 @@ class UtilityComponent(BaseComponent):
             bb_pos = float(val) if not isinstance(val, (int, float)) else val
             
             if bb_pos >= 0.8:
-                return 'background: var(--danger-red, #EF4444); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'  # Near upper band
+                return 'background: var(--danger-red, #DC2626); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'  # Near upper band
             elif bb_pos <= 0.2:
-                return 'background: var(--success-green, #10B981); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'  # Near lower band
+                return 'background: var(--success-green, #16A34A); color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'  # Near lower band
             else:
                 return 'color: var(--text-primary, #111827);'
         except (ValueError, TypeError):
