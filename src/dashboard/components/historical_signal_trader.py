@@ -96,10 +96,17 @@ class HistoricalSignalTrader:
             logger.info(f"Processing {len(signals_df)} rows for signal storage on {date}")
             logger.info(f"Available columns: {list(signals_df.columns)}")
             
+            # Debug: Show first few rows to understand data structure
+            if len(signals_df) > 0:
+                logger.info(f"First row sample: {dict(signals_df.iloc[0])}")
+            
             signals_stored = 0
-            for _, row in signals_df.iterrows():
+            skipped_no_symbol = 0
+            for idx, row in signals_df.iterrows():
                 symbol = get_column_value(row, 'symbol')
                 if not symbol:
+                    skipped_no_symbol += 1
+                    logger.debug(f"Row {idx}: No symbol found in {dict(row)}")
                     continue
                 
                 # Extract signal data with fallbacks
@@ -142,6 +149,10 @@ class HistoricalSignalTrader:
             
             self._save_signal_history()
             logger.info(f"Stored {signals_stored} signals for date {date}")
+            if skipped_no_symbol > 0:
+                logger.warning(f"Skipped {skipped_no_symbol} rows due to missing symbol")
+            if signals_stored == 0:
+                logger.error(f"No signals stored! Check column mapping. Available columns: {list(signals_df.columns)}")
             return signals_stored > 0
             
         except Exception as e:

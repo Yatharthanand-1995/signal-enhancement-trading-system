@@ -423,7 +423,7 @@ class PaperTradingUI:
             col1, col2 = st.columns(2)
             
             with col1:
-                if available_dates:  # Additional safety check
+                if available_dates and len(available_dates) > 0:  # Additional safety check
                     start_date = st.selectbox(
                         "Start Date",
                         options=available_dates,
@@ -435,15 +435,19 @@ class PaperTradingUI:
                     return
             
             with col2:
-                if available_dates:  # Additional safety check
-                    # Safe index calculation to avoid -1 error
+                if available_dates and len(available_dates) > 0:  # Additional safety check
+                    # Safe index calculation with double bounds checking
                     end_index = max(0, min(len(available_dates) - 1, len(available_dates) - 1))
-                    end_date = st.selectbox(
-                        "End Date", 
-                        options=available_dates,
-                        index=end_index,
-                        help="Last date to simulate to"
-                    )
+                    if end_index >= 0 and end_index < len(available_dates):
+                        end_date = st.selectbox(
+                            "End Date", 
+                            options=available_dates,
+                            index=end_index,
+                            help="Last date to simulate to"
+                        )
+                    else:
+                        st.warning("Unable to determine valid end date index")
+                        return
                 else:
                     st.warning("No end date options available")
                     return
