@@ -1,0 +1,22 @@
+[theme]
+# Auto theme configuration with high contrast support
+base = "light"
+primaryColor = "#2563EB"  # Blue primary color
+backgroundColor = "#FFFFFF"  # Pure white background for light mode
+secondaryBackgroundColor = "#F1F5F9"  # Light gray secondary for light mode
+textColor = "#1E293B"  # Dark slate text for light mode
+
+[server]
+# Server configuration
+headless = true
+port = 8502
+enableCORS = false
+
+[browser]
+gatherUsageStats = false
+
+[runner]
+magicEnabled = true
+
+[logger]
+level = "error"

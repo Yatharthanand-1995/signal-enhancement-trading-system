@@ -1,0 +1,299 @@
+# Disaster Recovery Runbook and Automation
+# This file contains the disaster recovery procedures and automation scripts
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: disaster-recovery-runbook
+  namespace: signal-trading
+  labels:
+    component: disaster-recovery
+data:
+  runbook.md: |
+    # Signal Trading System Disaster Recovery Runbook
+    
+    ## Emergency Contacts
+    - **On-Call Engineer**: +1-XXX-XXX-XXXX
+    - **DevOps Team**: devops@signaltrading.com
+    - **Management**: management@signaltrading.com
+    
+    ## Recovery Time Objectives (RTO) and Recovery Point Objectives (RPO)
+    - **RTO**: 30 minutes (system fully operational)
+    - **RPO**: 15 minutes (maximum data loss)
+    
+    ## Disaster Scenarios and Recovery Procedures
+    
+    ### 1. Complete Cluster Failure
+    **Symptoms**: All services unreachable, kubectl commands fail
+    
+    **Recovery Steps**:
+    1. Verify cluster status: `kubectl cluster-info`
+    2. Check node status: `kubectl get nodes`
+    3. If cluster is completely down:
+       - Contact cloud provider support
+       - Restore from latest Velero backup
+       - Execute: `kubectl apply -f k8s/disaster-recovery/cluster-restore.yaml`
+    
+    ### 2. Service-Specific Failures
+    **Symptoms**: Individual service health checks failing
+    
+    **Recovery Steps**:
+    1. Check service logs: `kubectl logs -n signal-trading deployment/<service-name>`
+    2. Check pod status: `kubectl get pods -n signal-trading`
+    3. Restart service: `kubectl rollout restart deployment/<service-name> -n signal-trading`
+    4. If persistent, restore from backup: `velero restore create --from-backup <backup-name>`
+    
+    ### 3. Database Corruption
+    **Symptoms**: Data service returning errors, database connection failures
+    
+    **Recovery Steps**:
+    1. Identify corrupted database: Check data-service logs
+    2. Stop data-service: `kubectl scale deployment data-service --replicas=0 -n signal-trading`
+    3. Restore from latest backup: Execute database restore job
+    4. Restart data-service: `kubectl scale deployment data-service --replicas=3 -n signal-trading`
+    5. Verify data integrity: Run data validation job
+    
+    ### 4. Security Breach
+    **Symptoms**: Unauthorized access, suspicious activity in logs
+    
+    **Immediate Actions**:
+    1. Isolate affected services: Apply network policies
+    2. Rotate all secrets: `kubectl apply -f k8s/secrets/emergency-secret-rotation.yaml`
+    3. Check audit logs: `kubectl get events --all-namespaces`
+    4. Contact security team immediately
+    
+    ### 5. Performance Degradation
+    **Symptoms**: High response times, resource exhaustion
+    
+    **Recovery Steps**:
+    1. Check metrics: Access Grafana dashboard
+    2. Scale up services: `kubectl scale deployment <service> --replicas=<N> -n signal-trading`
+    3. Check resource limits: Review HPA and VPA configurations
+    4. Apply emergency resource increases if needed
+    
+    ## Recovery Validation Checklist
+    - [ ] All services return healthy status
+    - [ ] API endpoints respond within SLA
+    - [ ] Database connections successful
+    - [ ] Monitoring systems operational
+    - [ ] Backup systems functional
+    - [ ] Security scanning complete
+    - [ ] Performance metrics normal
+  
+  emergency-contacts.json: |
+    {
+      "contacts": {
+        "primary_oncall": {
+          "name": "Primary On-Call Engineer",
+          "phone": "+1-XXX-XXX-XXXX",
+          "email": "oncall@signaltrading.com"
+        },
+        "backup_oncall": {
+          "name": "Backup On-Call Engineer", 
+          "phone": "+1-XXX-XXX-XXXX",
+          "email": "backup-oncall@signaltrading.com"
+        },
+        "devops_team": {
+          "name": "DevOps Team Lead",
+          "email": "devops@signaltrading.com",
+          "slack": "#devops-alerts"
+        },
+        "management": {
+          "name": "Technical Management",
+          "email": "tech-management@signaltrading.com"
+        },
+        "security_team": {
+          "name": "Security Team",
+          "email": "security@signaltrading.com",
+          "phone": "+1-XXX-XXX-XXXX"
+        }
+      }
+    }
+---
+# Emergency cluster restore job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: emergency-cluster-restore
+  namespace: signal-trading
+  labels:
+    component: disaster-recovery
+spec:
+  template:
+    spec:
+      serviceAccountName: disaster-recovery-sa
+      containers:
+      - name: cluster-restore
+        image: velero/velero:v1.12.0
+        command:
+        - /bin/bash
+        - -c
+        - |
+          echo "Starting emergency cluster restore..."
+          
+          # Get latest backup
+          LATEST_BACKUP=$(velero backup get | grep Completed | head -1 | awk '{print $1}')
+          
+          if [ -z "$LATEST_BACKUP" ]; then
+            echo "No completed backups found!"
+            exit 1
+          fi
+          
+          echo "Restoring from backup: $LATEST_BACKUP"
+          
+          # Create restore
+          velero restore create emergency-restore-$(date +%Y%m%d-%H%M%S) \
+            --from-backup $LATEST_BACKUP \
+            --wait
+          
+          echo "Restore completed. Verifying services..."
+          
+          # Wait for services to come up
+          sleep 60
+          
+          # Verify critical services
+          kubectl wait --for=condition=available --timeout=300s deployment/data-service -n signal-trading
+          kubectl wait --for=condition=available --timeout=300s deployment/gateway-service -n signal-trading
+          
+          echo "Emergency restore completed successfully"
+      restartPolicy: OnFailure
+      activeDeadlineSeconds: 3600  # 1 hour timeout
+---
+# Database restore job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: database-restore
+  namespace: signal-trading
+  labels:
+    component: disaster-recovery
+spec:
+  template:
+    spec:
+      containers:
+      - name: db-restore
+        image: signal-trading/data-service:latest
+        command:
+        - /bin/bash
+        - -c
+        - |
+          echo "Starting database restore..."
+          
+          # Find latest database backup
+          LATEST_BACKUP=$(find /data -name "backup_*.db" | sort | tail -1)
+          
+          if [ -z "$LATEST_BACKUP" ]; then
+            echo "No database backups found!"
+            exit 1
+          fi
+          
+          echo "Restoring from: $LATEST_BACKUP"
+          
+          # Stop any active connections (if possible)
+          # Restore database
+          cp $LATEST_BACKUP /data/service.db
+          
+          # Verify restore
+          sqlite3 /data/service.db "SELECT COUNT(*) FROM sqlite_master;"
+          
+          echo "Database restore completed"
+        volumeMounts:
+        - name: data-volume
+          mountPath: /data
+      volumes:
+      - name: data-volume
+        persistentVolumeClaim:
+          claimName: data-service-pvc
+      restartPolicy: OnFailure
+---
+# Service account for disaster recovery operations
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: disaster-recovery-sa
+  namespace: signal-trading
+  labels:
+    component: disaster-recovery
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: disaster-recovery-role
+  labels:
+    component: disaster-recovery
+rules:
+- apiGroups: [""]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["apps"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["extensions"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["velero.io"]
+  resources: ["*"]
+  verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: disaster-recovery-binding
+  labels:
+    component: disaster-recovery
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: disaster-recovery-role
+subjects:
+- kind: ServiceAccount
+  name: disaster-recovery-sa
+  namespace: signal-trading
+---
+# Emergency secret rotation job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: emergency-secret-rotation
+  namespace: signal-trading
+  labels:
+    component: disaster-recovery
+spec:
+  template:
+    spec:
+      serviceAccountName: disaster-recovery-sa
+      containers:
+      - name: secret-rotation
+        image: bitnami/kubectl:latest
+        command:
+        - /bin/bash
+        - -c
+        - |
+          echo "Starting emergency secret rotation..."
+          
+          # Generate new JWT secret
+          NEW_JWT_SECRET=$(openssl rand -base64 32)
+          
+          # Update JWT secret
+          kubectl create secret generic gateway-secrets-new \
+            --from-literal=jwt-secret="$NEW_JWT_SECRET" \
+            --namespace=signal-trading
+          
+          # Update gateway deployment to use new secret
+          kubectl patch deployment gateway-service \
+            --patch '{"spec":{"template":{"spec":{"containers":[{"name":"gateway-service","env":[{"name":"JWT_SECRET_KEY","valueFrom":{"secretKeyRef":{"name":"gateway-secrets-new","key":"jwt-secret"}}}]}]}}}}' \
+            --namespace=signal-trading
+          
+          # Wait for rollout
+          kubectl rollout status deployment/gateway-service --namespace=signal-trading
+          
+          # Clean up old secret
+          kubectl delete secret gateway-secrets --namespace=signal-trading
+          kubectl get secret gateway-secrets-new -o yaml | sed 's/gateway-secrets-new/gateway-secrets/' | kubectl apply -f -
+          kubectl delete secret gateway-secrets-new --namespace=signal-trading
+          
+          echo "Emergency secret rotation completed"
+      restartPolicy: OnFailure

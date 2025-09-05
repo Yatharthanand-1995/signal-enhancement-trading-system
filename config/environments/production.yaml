@@ -1,0 +1,186 @@
+# Production Environment Configuration
+# Production-optimized settings with security and performance focus
+
+logging:
+  level: "INFO"  # Less verbose logging in production
+  handlers:
+    - type: "file"
+      level: "INFO"
+      filename: "/var/log/trading/app.log"
+      max_bytes: 52428800  # 50MB
+      backup_count: 20
+    - type: "syslog"
+      level: "WARNING"
+      facility: "local0"
+      
+database:
+  hot_data:
+    host: "${REDIS_HOST}"
+    port: "${REDIS_PORT}"
+    password: "${REDIS_PASSWORD}"
+    ssl: true
+    connection_pool_size: 50
+    
+  warm_data:
+    host: "${POSTGRES_HOST}"
+    port: "${POSTGRES_PORT}"
+    database: "${POSTGRES_DATABASE}"
+    username: "${POSTGRES_USERNAME}"
+    password: "${POSTGRES_PASSWORD}"
+    ssl_mode: "require"
+    pool_size: 100
+    max_overflow: 50
+    
+  cold_data:
+    database: "/data/historical.db"
+    wal_mode: true
+    journal_mode: "WAL"
+    
+ml_models:
+  # Strict production thresholds
+  monitoring:
+    accuracy_threshold: 0.85
+    drift_threshold: 0.10
+    error_rate_threshold: 0.05
+    data_quality_threshold: 0.90
+    
+  # Conservative rebalancing
+  ensemble:
+    rebalance_frequency_hours: 12
+    performance_window_hours: 48
+    
+  # Model storage on distributed filesystem
+  registry:
+    storage_path: "/shared/models/"
+    backup_enabled: true
+    backup_retention_days: 90
+    
+trading:
+  # Production risk settings
+  risk:
+    max_position_size: 0.03  # 3% maximum position
+    max_portfolio_risk: 0.15  # 15% maximum portfolio risk
+    stop_loss_pct: 0.06  # 6% stop loss
+    take_profit_pct: 0.12  # 12% take profit
+    emergency_stop_enabled: true
+    
+  signals:
+    min_confidence: 0.75  # Higher confidence required
+    signal_timeout_hours: 12
+    max_signals_per_day: 30
+    
+  portfolio:
+    rebalance_frequency: "daily"
+    cash_buffer_pct: 0.10  # 10% cash buffer for safety
+    
+data_sources:
+  market_data:
+    # Production data providers
+    primary_provider: "bloomberg"
+    backup_provider: "refinitiv"
+    tertiary_provider: "alpha_vantage"
+    
+    # High-frequency updates
+    update_frequency: "30s"
+    rate_limit_per_minute: 2000
+    
+    # Redundancy settings
+    failover_enabled: true
+    health_check_interval: 60
+    
+performance:
+  cache:
+    enabled: true
+    ttl_seconds: 600  # 10 minutes
+    max_size: 10000
+    distributed: true  # Use Redis for distributed caching
+    
+  api:
+    timeout_seconds: 10  # Shorter timeout for production
+    retry_attempts: 5
+    circuit_breaker_enabled: true
+    
+  threading:
+    max_workers: 16  # More workers for production
+    thread_pool_timeout: 60
+    
+monitoring:
+  # Comprehensive health monitoring
+  health_check:
+    enabled: true
+    interval_seconds: 30
+    timeout_seconds: 5
+    endpoints:
+      - name: "database_hot"
+        type: "redis"
+        critical: true
+      - name: "database_warm"
+        type: "postgresql"
+        critical: true
+      - name: "market_data"
+        type: "external_api"
+        critical: true
+      - name: "ml_models"
+        type: "ml_service"
+        critical: false
+        
+  # Production metrics
+  metrics:
+    enabled: true
+    collection_interval_seconds: 15
+    retention_days: 365
+    export_to_prometheus: true
+    
+  # APM integration
+  apm:
+    enabled: true
+    service_name: "signal-trading-system"
+    environment: "production"
+    
+alerts:
+  # Production alerting channels
+  default_channels: ["pagerduty", "slack", "email"]
+  cooldown_minutes: 60
+  escalation_minutes: 30
+  
+  # Critical alert routing
+  escalation_rules:
+    - severity: "critical"
+      channels: ["pagerduty", "sms"]
+      immediate: true
+    - severity: "high"
+      channels: ["slack", "email"]
+      delay_minutes: 5
+      
+security:
+  # Security hardening
+  api_rate_limiting:
+    enabled: true
+    requests_per_minute: 1000
+    
+  encryption:
+    enabled: true
+    algorithm: "AES-256-GCM"
+    
+  audit_logging:
+    enabled: true
+    log_file: "/var/log/trading/audit.log"
+    
+# Production-specific settings
+production:
+  # Deployment settings
+  deployment:
+    strategy: "blue_green"
+    health_check_grace_period: 300  # 5 minutes
+    rollback_on_failure: true
+    
+  # Backup settings
+  backup:
+    enabled: true
+    frequency: "daily"
+    retention_days: 90
+    
+  # Maintenance windows
+  maintenance:
+    allowed_hours: [2, 3, 4]  # 2-4 AM
+    max_duration_minutes: 60

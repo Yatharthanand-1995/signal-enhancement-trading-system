@@ -1,0 +1,430 @@
+openapi: 3.0.3
+info:
+  title: Data Service API
+  description: Data ingestion, validation, and management service for the Signal Trading System
+  version: 1.0.0
+  contact:
+    name: Signal Trading System
+    email: support@signaltrading.com
+
+servers:
+  - url: http://localhost:8001
+    description: Development server
+  - url: https://data-service.signaltrading.com
+    description: Production server
+
+security:
+  - bearerAuth: []
+  - apiKeyAuth: []
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Returns service health status and dependency checks
+      tags:
+        - Health
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /metrics:
+    get:
+      summary: Prometheus metrics endpoint
+      description: Returns service metrics in Prometheus format
+      tags:
+        - Monitoring
+      security: []
+      responses:
+        '200':
+          description: Metrics data
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /data/market:
+    post:
+      summary: Retrieve market data
+      description: Get market data for specified symbols and time range
+      tags:
+        - Market Data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DataRequest'
+      responses:
+        '200':
+          description: Market data retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketDataResponse'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No data found for specified criteria
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /data/market/{symbol}:
+    get:
+      summary: Get market data for specific symbol
+      description: Retrieve market data for a single symbol
+      tags:
+        - Market Data
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "AAPL"
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date
+            example: "2024-01-01"
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date
+            example: "2024-01-31"
+        - name: interval
+          in: query
+          schema:
+            type: string
+            enum: [1m, 5m, 15m, 1h, 1d]
+            default: 1d
+      responses:
+        '200':
+          description: Market data retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketDataResponse'
+
+  /data/technical:
+    post:
+      summary: Calculate technical indicators
+      description: Calculate technical indicators for given symbols
+      tags:
+        - Technical Analysis
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TechnicalIndicatorRequest'
+      responses:
+        '200':
+          description: Technical indicators calculated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TechnicalIndicatorResponse'
+
+  /data/validate:
+    post:
+      summary: Validate market data
+      description: Validate the quality and integrity of market data
+      tags:
+        - Data Quality
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/MarketData'
+      responses:
+        '200':
+          description: Data validation results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataValidationResponse'
+
+  /data/quality/metrics:
+    get:
+      summary: Get data quality metrics
+      description: Retrieve overall data quality metrics
+      tags:
+        - Data Quality
+      responses:
+        '200':
+          description: Data quality metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataQualityMetrics'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        service_name:
+          type: string
+          example: "data-service"
+        status:
+          type: string
+          enum: [healthy, unhealthy, degraded]
+        version:
+          type: string
+          example: "1.0.0"
+        timestamp:
+          type: string
+          format: date-time
+        dependencies:
+          type: object
+          additionalProperties:
+            type: string
+            enum: [healthy, unhealthy]
+        metrics:
+          type: object
+
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [error]
+        error_code:
+          type: string
+        error_message:
+          type: string
+        details:
+          type: object
+        timestamp:
+          type: string
+          format: date-time
+        request_id:
+          type: string
+
+    DataRequest:
+      type: object
+      required:
+        - symbol
+      properties:
+        symbol:
+          type: string
+          example: "AAPL"
+        start_date:
+          type: string
+          format: date-time
+          example: "2024-01-01T00:00:00Z"
+        end_date:
+          type: string
+          format: date-time
+          example: "2024-01-31T23:59:59Z"
+        data_type:
+          type: string
+          enum: [ohlcv, technical, fundamental]
+          default: ohlcv
+        interval:
+          type: string
+          enum: [1m, 5m, 15m, 1h, 1d]
+          default: 1d
+
+    MarketData:
+      type: object
+      required:
+        - symbol
+        - timestamp
+        - price
+        - volume
+      properties:
+        symbol:
+          type: string
+          example: "AAPL"
+        timestamp:
+          type: string
+          format: date-time
+        price:
+          type: number
+          format: float
+          minimum: 0
+        volume:
+          type: integer
+          minimum: 0
+        open:
+          type: number
+          format: float
+        high:
+          type: number
+          format: float
+        low:
+          type: number
+          format: float
+        close:
+          type: number
+          format: float
+        metadata:
+          type: object
+
+    MarketDataResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/MarketData'
+        metadata:
+          type: object
+          properties:
+            total_records:
+              type: integer
+            start_date:
+              type: string
+              format: date-time
+            end_date:
+              type: string
+              format: date-time
+
+    TechnicalIndicatorRequest:
+      type: object
+      required:
+        - symbol
+        - indicators
+      properties:
+        symbol:
+          type: string
+          example: "AAPL"
+        indicators:
+          type: array
+          items:
+            type: string
+          example: ["sma_20", "rsi_14", "macd"]
+        period:
+          type: integer
+          minimum: 1
+          default: 30
+
+    TechnicalIndicatorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: object
+              properties:
+                timestamp:
+                  type: string
+                  format: date-time
+                value:
+                  type: number
+                  format: float
+
+    DataValidationResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [success]
+        validation_results:
+          type: object
+          properties:
+            total_records:
+              type: integer
+            valid_records:
+              type: integer
+            invalid_records:
+              type: integer
+            validation_errors:
+              type: array
+              items:
+                type: object
+                properties:
+                  record_index:
+                    type: integer
+                  error_type:
+                    type: string
+                  error_message:
+                    type: string
+            quality_score:
+              type: number
+              format: float
+              minimum: 0
+              maximum: 1
+
+    DataQualityMetrics:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [success]
+        metrics:
+          type: object
+          properties:
+            overall_quality_score:
+              type: number
+              format: float
+              minimum: 0
+              maximum: 1
+            completeness_score:
+              type: number
+              format: float
+            accuracy_score:
+              type: number
+              format: float
+            timeliness_score:
+              type: number
+              format: float
+            total_symbols_tracked:
+              type: integer
+            last_updated:
+              type: string
+              format: date-time
+
+tags:
+  - name: Health
+    description: Service health and status endpoints
+  - name: Monitoring
+    description: Metrics and monitoring endpoints
+  - name: Market Data
+    description: Market data retrieval and management
+  - name: Technical Analysis
+    description: Technical indicator calculations
+  - name: Data Quality
+    description: Data validation and quality metrics

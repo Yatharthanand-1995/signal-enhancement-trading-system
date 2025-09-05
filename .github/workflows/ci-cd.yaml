@@ -1,0 +1,344 @@
+name: Signal Trading System CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+  pull_request:
+    branches: [ main, develop ]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+  release:
+    types: [published]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: signal-trading
+
+jobs:
+  # Static Code Analysis
+  lint-and-test:
+    name: Lint, Test & Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r shared/requirements.txt
+        pip install pytest pytest-cov black isort flake8 bandit safety
+        
+    - name: Code formatting with Black
+      run: black --check --diff .
+      
+    - name: Import sorting with isort
+      run: isort --check-only --diff .
+      
+    - name: Lint with flake8
+      run: flake8 --max-line-length=88 --extend-ignore=E203,W503 .
+      
+    - name: Security scan with Bandit
+      run: bandit -r . -x */tests/*,*/test_*.py
+      
+    - name: Dependency vulnerability scan
+      run: safety check
+      
+    - name: Run unit tests
+      run: |
+        pytest --cov=. --cov-report=xml --cov-report=html -v
+        
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+
+  # Build and push Docker images for each service
+  build-and-push:
+    name: Build & Push Docker Images
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    
+    strategy:
+      matrix:
+        service: [data-service, signal-service, gateway-service, ml-service, risk-service]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.service }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./services/${{ matrix.service }}
+        file: ./services/${{ matrix.service }}/Dockerfile
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
+
+  # Integration Tests
+  integration-tests:
+    name: Integration Tests
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r shared/requirements.txt
+        pip install pytest pytest-asyncio httpx
+        
+    - name: Start services with docker-compose
+      run: |
+        docker-compose -f docker-compose.test.yaml up -d
+        sleep 30  # Wait for services to start
+        
+    - name: Run integration tests
+      env:
+        REDIS_URL: redis://localhost:6379/0
+        ENVIRONMENT: testing
+      run: |
+        pytest tests/integration/ -v --tb=short
+        
+    - name: Stop services
+      if: always()
+      run: |
+        docker-compose -f docker-compose.test.yaml down
+
+  # Security scanning
+  security-scan:
+    name: Container Security Scan
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    
+    strategy:
+      matrix:
+        service: [data-service, gateway-service]
+    
+    steps:
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: '${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.service }}:${{ github.sha }}'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # Deploy to staging
+  deploy-staging:
+    name: Deploy to Staging
+    needs: [integration-tests, security-scan]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Configure kubectl
+      uses: azure/k8s-set-context@v3
+      with:
+        method: kubeconfig
+        kubeconfig: ${{ secrets.KUBE_CONFIG_STAGING }}
+        
+    - name: Deploy to staging
+      run: |
+        # Update image tags in Kubernetes manifests
+        sed -i 's|image: signal-trading/|image: ${{ env.REGISTRY }}/${{ github.repository }}/|g' k8s/**/deployment.yaml
+        sed -i 's|:latest|:${{ github.sha }}|g' k8s/**/deployment.yaml
+        
+        # Apply Kubernetes manifests
+        kubectl apply -f k8s/namespace.yaml
+        kubectl apply -f k8s/secrets/ --namespace=signal-trading-dev
+        kubectl apply -f k8s/redis/ --namespace=signal-trading-dev
+        kubectl apply -f k8s/data-service/ --namespace=signal-trading-dev
+        kubectl apply -f k8s/gateway-service/ --namespace=signal-trading-dev
+        
+        # Wait for deployment to complete
+        kubectl rollout status deployment/data-service --namespace=signal-trading-dev --timeout=600s
+        kubectl rollout status deployment/gateway-service --namespace=signal-trading-dev --timeout=600s
+        
+    - name: Run smoke tests
+      run: |
+        # Wait for services to be ready
+        sleep 60
+        
+        # Get service URLs
+        DATA_SERVICE_URL=$(kubectl get service data-service --namespace=signal-trading-dev -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+        GATEWAY_URL=$(kubectl get service gateway-service --namespace=signal-trading-dev -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+        
+        # Basic health checks
+        curl -f http://${DATA_SERVICE_URL}:8001/health || exit 1
+        curl -f http://${GATEWAY_URL}:8000/health || exit 1
+        
+        echo "Staging deployment successful!"
+
+  # Deploy to production
+  deploy-production:
+    name: Deploy to Production
+    needs: [integration-tests, security-scan]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Configure kubectl
+      uses: azure/k8s-set-context@v3
+      with:
+        method: kubeconfig
+        kubeconfig: ${{ secrets.KUBE_CONFIG_PRODUCTION }}
+        
+    - name: Deploy to production
+      run: |
+        # Update image tags in Kubernetes manifests
+        sed -i 's|image: signal-trading/|image: ${{ env.REGISTRY }}/${{ github.repository }}/|g' k8s/**/deployment.yaml
+        sed -i 's|:latest|:${{ github.sha }}|g' k8s/**/deployment.yaml
+        
+        # Apply Kubernetes manifests with rolling updates
+        kubectl apply -f k8s/namespace.yaml
+        kubectl apply -f k8s/secrets/ --namespace=signal-trading
+        kubectl apply -f k8s/redis/ --namespace=signal-trading
+        
+        # Rolling deployment for zero-downtime updates
+        kubectl set image deployment/data-service data-service=${{ env.REGISTRY }}/${{ github.repository }}/data-service:${{ github.sha }} --namespace=signal-trading
+        kubectl set image deployment/gateway-service gateway-service=${{ env.REGISTRY }}/${{ github.repository }}/gateway-service:${{ github.sha }} --namespace=signal-trading
+        
+        # Wait for deployment to complete
+        kubectl rollout status deployment/data-service --namespace=signal-trading --timeout=600s
+        kubectl rollout status deployment/gateway-service --namespace=signal-trading --timeout=600s
+        
+    - name: Run production smoke tests
+      run: |
+        # Wait for services to be ready
+        sleep 30
+        
+        # Production health checks
+        curl -f https://api.signaltrading.com/health || exit 1
+        
+        # Verify critical endpoints
+        curl -f https://api.signaltrading.com/api/v1/data/health || exit 1
+        
+        echo "Production deployment successful!"
+        
+    - name: Notify deployment success
+      uses: 8398a7/action-slack@v3
+      with:
+        status: success
+        text: "🚀 Production deployment successful for commit ${{ github.sha }}"
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      if: success()
+      
+    - name: Notify deployment failure
+      uses: 8398a7/action-slack@v3
+      with:
+        status: failure
+        text: "❌ Production deployment failed for commit ${{ github.sha }}"
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      if: failure()
+
+  # Database migrations (if needed)
+  database-migration:
+    name: Database Migration
+    needs: deploy-production
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[migrate]')
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Configure kubectl
+      uses: azure/k8s-set-context@v3
+      with:
+        method: kubeconfig
+        kubeconfig: ${{ secrets.KUBE_CONFIG_PRODUCTION }}
+        
+    - name: Run database migrations
+      run: |
+        # Create migration job
+        kubectl create job --from=deployment/data-service migration-$(date +%s) --namespace=signal-trading
+        
+        # Wait for migration to complete
+        kubectl wait --for=condition=complete job/migration-$(date +%s) --namespace=signal-trading --timeout=300s
+        
+        echo "Database migration completed successfully!"

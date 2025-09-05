@@ -1,0 +1,514 @@
+openapi: 3.0.3
+info:
+  title: API Gateway Service
+  description: Central API gateway for routing requests to microservices
+  version: 1.0.0
+  contact:
+    name: Signal Trading System
+    email: support@signaltrading.com
+
+servers:
+  - url: http://localhost:8000
+    description: Development server
+  - url: https://api.signaltrading.com
+    description: Production server
+
+security:
+  - bearerAuth: []
+  - apiKeyAuth: []
+
+paths:
+  /health:
+    get:
+      summary: Gateway health check
+      description: Returns gateway health and service discovery status
+      tags:
+        - Health
+      security: []
+      responses:
+        '200':
+          description: Gateway is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayHealthResponse'
+
+  /auth/login:
+    post:
+      summary: User authentication
+      description: Authenticate user and return JWT tokens
+      tags:
+        - Authentication
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/refresh:
+    post:
+      summary: Refresh access token
+      description: Refresh access token using refresh token
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+
+  /auth/logout:
+    post:
+      summary: User logout
+      description: Logout user and revoke tokens
+      tags:
+        - Authentication
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  # Data Service Proxy Routes
+  /api/v1/data/{path}:
+    get:
+      summary: Data service proxy (GET)
+      description: Proxy requests to data service
+      tags:
+        - Data Service Proxy
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Request proxied successfully
+        default:
+          description: Proxied response from data service
+    post:
+      summary: Data service proxy (POST)
+      description: Proxy requests to data service
+      tags:
+        - Data Service Proxy
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Request proxied successfully
+        default:
+          description: Proxied response from data service
+
+  # Signal Service Proxy Routes
+  /api/v1/signals/{path}:
+    get:
+      summary: Signal service proxy (GET)
+      description: Proxy requests to signal service
+      tags:
+        - Signal Service Proxy
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Request proxied successfully
+        default:
+          description: Proxied response from signal service
+    post:
+      summary: Signal service proxy (POST)
+      description: Proxy requests to signal service
+      tags:
+        - Signal Service Proxy
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Request proxied successfully
+        default:
+          description: Proxied response from signal service
+
+  # ML Service Proxy Routes
+  /api/v1/ml/{path}:
+    get:
+      summary: ML service proxy (GET)
+      description: Proxy requests to ML service
+      tags:
+        - ML Service Proxy
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Request proxied successfully
+        default:
+          description: Proxied response from ML service
+    post:
+      summary: ML service proxy (POST)
+      description: Proxy requests to ML service
+      tags:
+        - ML Service Proxy
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Request proxied successfully
+        default:
+          description: Proxied response from ML service
+
+  /services:
+    get:
+      summary: List registered services
+      description: Get list of all registered services and their status
+      tags:
+        - Service Management
+      responses:
+        '200':
+          description: Services list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServicesResponse'
+
+  /services/{service_name}/register:
+    post:
+      summary: Register a service
+      description: Register a new service with the gateway
+      tags:
+        - Service Management
+      parameters:
+        - name: service_name
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceRegistrationRequest'
+      responses:
+        '200':
+          description: Service registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /services/{service_name}/deregister:
+    post:
+      summary: Deregister a service
+      description: Remove a service from the gateway registry
+      tags:
+        - Service Management
+      parameters:
+        - name: service_name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Service deregistered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /rate-limit/status:
+    get:
+      summary: Get rate limit status
+      description: Get current rate limit status for the authenticated user
+      tags:
+        - Rate Limiting
+      responses:
+        '200':
+          description: Rate limit status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  schemas:
+    GatewayHealthResponse:
+      type: object
+      properties:
+        service_name:
+          type: string
+          example: "gateway-service"
+        status:
+          type: string
+          enum: [healthy, unhealthy, degraded]
+        version:
+          type: string
+          example: "1.0.0"
+        timestamp:
+          type: string
+          format: date-time
+        registered_services:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              status:
+                type: string
+                enum: [healthy, unhealthy]
+              url:
+                type: string
+              last_check:
+                type: string
+                format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [error]
+        error_code:
+          type: string
+        error_message:
+          type: string
+        details:
+          type: object
+        timestamp:
+          type: string
+          format: date-time
+        request_id:
+          type: string
+
+    SuccessResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [success]
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        request_id:
+          type: string
+
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          example: "user@example.com"
+        password:
+          type: string
+          format: password
+        remember_me:
+          type: boolean
+          default: false
+
+    RefreshRequest:
+      type: object
+      required:
+        - refresh_token
+      properties:
+        refresh_token:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [success]
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        token_type:
+          type: string
+          example: "bearer"
+        expires_in:
+          type: integer
+          description: "Token expiry time in seconds"
+        user_info:
+          type: object
+          properties:
+            user_id:
+              type: string
+            username:
+              type: string
+            email:
+              type: string
+            roles:
+              type: array
+              items:
+                type: string
+            permissions:
+              type: array
+              items:
+                type: string
+
+    ServicesResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [success]
+        services:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              url:
+                type: string
+              status:
+                type: string
+                enum: [healthy, unhealthy, unknown]
+              version:
+                type: string
+              last_health_check:
+                type: string
+                format: date-time
+              endpoints:
+                type: array
+                items:
+                  type: string
+
+    ServiceRegistrationRequest:
+      type: object
+      required:
+        - service_url
+        - health_check_url
+      properties:
+        service_url:
+          type: string
+          format: uri
+          example: "http://data-service:8001"
+        health_check_url:
+          type: string
+          format: uri
+          example: "http://data-service:8001/health"
+        version:
+          type: string
+          example: "1.0.0"
+        metadata:
+          type: object
+          properties:
+            description:
+              type: string
+            tags:
+              type: array
+              items:
+                type: string
+            weight:
+              type: integer
+              description: "Load balancing weight"
+              default: 1
+
+    RateLimitResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [success]
+        rate_limit_info:
+          type: object
+          properties:
+            requests_remaining:
+              type: integer
+            requests_total:
+              type: integer
+            window_reset_time:
+              type: string
+              format: date-time
+            retry_after_seconds:
+              type: integer
+
+tags:
+  - name: Health
+    description: Gateway health and status endpoints
+  - name: Authentication
+    description: User authentication and authorization
+  - name: Data Service Proxy
+    description: Proxy routes for data service
+  - name: Signal Service Proxy
+    description: Proxy routes for signal service
+  - name: ML Service Proxy
+    description: Proxy routes for ML service
+  - name: Service Management
+    description: Service registration and discovery
+  - name: Rate Limiting
+    description: Rate limiting and quota management

@@ -1,0 +1,155 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-service
+  namespace: signal-trading
+  labels:
+    app: data-service
+    component: microservice
+    tier: backend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: data-service
+  template:
+    metadata:
+      labels:
+        app: data-service
+        component: microservice
+        tier: backend
+        version: v1
+    spec:
+      containers:
+      - name: data-service
+        image: signal-trading/data-service:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8001
+          name: http
+        env:
+        - name: ENVIRONMENT
+          value: "production"
+        - name: PORT
+          value: "8001"
+        - name: REDIS_URL
+          value: "redis://redis-service:6379/0"
+        - name: DATABASE_URL
+          value: "sqlite:///data/service.db"
+        - name: LOG_LEVEL
+          value: "INFO"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        volumeMounts:
+        - name: data-storage
+          mountPath: /data
+        - name: config-volume
+          mountPath: /app/config
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8001
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+      volumes:
+      - name: data-storage
+        persistentVolumeClaim:
+          claimName: data-service-pvc
+      - name: config-volume
+        configMap:
+          name: data-service-config
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: data-service
+  namespace: signal-trading
+  labels:
+    app: data-service
+    component: microservice
+spec:
+  selector:
+    app: data-service
+  ports:
+  - name: http
+    port: 8001
+    targetPort: 8001
+    protocol: TCP
+  type: ClusterIP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data-service-pvc
+  namespace: signal-trading
+  labels:
+    app: data-service
+    component: microservice
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: hostpath
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: data-service-config
+  namespace: signal-trading
+  labels:
+    app: data-service
+    component: configuration
+data:
+  config.yaml: |
+    app:
+      name: "data-service"
+      environment: "production"
+      port: 8001
+    
+    logging:
+      level: "INFO"
+      format: "json"
+    
+    database:
+      url: "sqlite:///data/service.db"
+      max_connections: 20
+      timeout: 30
+    
+    cache:
+      redis_url: "redis://redis-service:6379/0"
+      ttl: 300
+    
+    monitoring:
+      enabled: true
+      metrics_port: 9090
+      health_check_interval: 30

@@ -1,0 +1,22 @@
+[theme]
+# Dark theme configuration with high contrast support
+base = "dark"
+primaryColor = "#60A5FA"  # Light blue for dark theme
+backgroundColor = "#0E1117"  # Dark background
+secondaryBackgroundColor = "#1E1E1E"  # Dark gray secondary
+textColor = "#FAFAFA"  # Light text
+
+[server]
+# Server configuration
+headless = true
+port = 8503
+enableCORS = false
+
+[browser]
+gatherUsageStats = false
+
+[runner]
+magicEnabled = true
+
+[logger]
+level = "error"

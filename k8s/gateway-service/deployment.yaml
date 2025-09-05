@@ -1,0 +1,157 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway-service
+  namespace: signal-trading
+  labels:
+    app: gateway-service
+    component: api-gateway
+    tier: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: gateway-service
+  template:
+    metadata:
+      labels:
+        app: gateway-service
+        component: api-gateway
+        tier: frontend
+        version: v1
+    spec:
+      containers:
+      - name: gateway-service
+        image: signal-trading/gateway-service:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8000
+          name: http
+        - containerPort: 9090
+          name: metrics
+        env:
+        - name: ENVIRONMENT
+          value: "production"
+        - name: PORT
+          value: "8000"
+        - name: REDIS_URL
+          value: "redis://redis-service:6379/0"
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: gateway-secrets
+              key: jwt-secret
+        - name: ALLOWED_ORIGINS
+          value: "https://app.signaltrading.com,https://dashboard.signaltrading.com"
+        - name: RATE_LIMIT_REQUESTS
+          value: "1000"
+        - name: RATE_LIMIT_WINDOW
+          value: "3600"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 30
+      volumes:
+      - name: config-volume
+        configMap:
+          name: gateway-service-config
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-service
+  namespace: signal-trading
+  labels:
+    app: gateway-service
+    component: api-gateway
+spec:
+  selector:
+    app: gateway-service
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
+  - name: metrics
+    port: 9090
+    targetPort: 9090
+    protocol: TCP
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gateway-service-config
+  namespace: signal-trading
+  labels:
+    app: gateway-service
+    component: configuration
+data:
+  config.yaml: |
+    app:
+      name: "gateway-service"
+      environment: "production"
+      port: 8000
+    
+    services:
+      data_service:
+        url: "http://data-service:8001"
+        timeout: 30
+        retries: 3
+      signal_service:
+        url: "http://signal-service:8002"
+        timeout: 30
+        retries: 3
+      ml_service:
+        url: "http://ml-service:8003"
+        timeout: 60
+        retries: 2
+      risk_service:
+        url: "http://risk-service:8004"
+        timeout: 30
+        retries: 3
+    
+    rate_limiting:
+      enabled: true
+      requests_per_hour: 1000
+      burst_size: 100
+    
+    cors:
+      allowed_origins:
+        - "https://app.signaltrading.com"
+        - "https://dashboard.signaltrading.com"
+      allowed_methods:
+        - "GET"
+        - "POST"
+        - "PUT"
+        - "DELETE"
+        - "OPTIONS"

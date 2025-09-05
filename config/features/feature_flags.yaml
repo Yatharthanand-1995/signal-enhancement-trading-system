@@ -1,0 +1,117 @@
+# Feature Flags Configuration
+# Runtime toggles for features and experiments
+
+# ML Model Features
+ml_features:
+  ensemble_optimization: true
+  real_time_retraining: true
+  anomaly_detection: true
+  explainable_ai: false  # Beta feature
+  
+  # A/B Testing for models
+  model_ab_testing:
+    lstm_vs_xgb: false
+    ensemble_vs_single: true
+    
+  # Advanced ML features
+  online_learning: false
+  federated_learning: false
+  reinforcement_learning: false
+
+# Trading Features  
+trading_features:
+  # Risk management
+  dynamic_position_sizing: true
+  correlation_based_risk: true
+  regime_aware_trading: false
+  
+  # Signal processing
+  signal_aggregation: true
+  confidence_weighting: true
+  decay_factor_adjustment: true
+  
+  # Portfolio management
+  automatic_rebalancing: true
+  tax_loss_harvesting: false
+  sector_diversification: true
+
+# Data Features
+data_features:
+  # Alternative data sources
+  sentiment_data: false
+  social_media_signals: false
+  satellite_data: false
+  
+  # Data processing
+  real_time_feature_engineering: true
+  streaming_data_pipeline: false
+  data_quality_monitoring: true
+
+# Dashboard Features
+dashboard_features:
+  # Visualization
+  advanced_charts: true
+  interactive_plots: true
+  real_time_updates: true
+  
+  # Analytics
+  performance_attribution: true
+  risk_decomposition: true
+  signal_effectiveness: true
+  
+  # User interface
+  dark_mode: true
+  mobile_responsive: false
+  multi_language: false
+
+# Performance Features
+performance_features:
+  # Caching
+  redis_caching: true
+  query_optimization: true
+  connection_pooling: true
+  
+  # Processing
+  parallel_processing: true
+  gpu_acceleration: false
+  distributed_computing: false
+
+# Security Features
+security_features:
+  # Authentication
+  two_factor_auth: false
+  sso_integration: false
+  rbac_permissions: false
+  
+  # Monitoring
+  security_logging: true
+  intrusion_detection: false
+  vulnerability_scanning: false
+
+# Experimental Features (use with caution)
+experimental:
+  # Next-generation algorithms
+  quantum_computing_integration: false
+  blockchain_data_sources: false
+  ai_generated_strategies: false
+  
+  # Advanced analytics
+  causal_inference: false
+  synthetic_data_generation: false
+  automated_research: false
+
+# Environment-specific overrides
+environment_overrides:
+  development:
+    ml_features:
+      explainable_ai: true  # Enable for development testing
+      online_learning: true
+    experimental:
+      quantum_computing_integration: false  # Keep disabled even in dev
+      
+  production:
+    experimental:
+      # Disable all experimental features in production
+      quantum_computing_integration: false
+      blockchain_data_sources: false
+      ai_generated_strategies: false
