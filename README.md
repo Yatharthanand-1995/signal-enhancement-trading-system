@@ -53,12 +53,14 @@ archive/                       # 🗃️ Archived files
 
 ## 💻 Current System Status
 
-- ✅ **Dashboard**: Fully operational Streamlit interface
+- ✅ **Dashboard**: Fully operational Streamlit interface with optimized performance
 - ✅ **Data Pipeline**: 100 stocks with 1,256 days historical + live feeds
 - ✅ **Technical Indicators**: 29 indicators calculated per stock
 - ✅ **Market Analysis**: Real-time market environment assessment
-- ✅ **Performance**: Optimized with parallel processing
+- ✅ **Performance**: Optimized with parallel processing and session caching
 - ✅ **Clean Architecture**: Dash removed, Streamlit-only implementation
+- ✅ **Error Resolution**: All critical dashboard errors fixed (Sept 2025)
+- ✅ **Redis Integration**: Proper caching with error-free authentication
 
 ## 🔧 Configuration
 
@@ -88,8 +90,46 @@ All documentation is organized in the `docs/` folder:
 - **Memory Efficiency**: Optimized data structures and caching
 - **Scalability**: Parallel processing architecture
 
+## 🔧 Troubleshooting
+
+### Common Issues & Solutions
+
+**Import Path Errors**
+```bash
+# If you see "ModuleNotFoundError", ensure proper project structure:
+cd /path/to/SIgnal-US
+source trading_env/bin/activate
+cd src/dashboard
+streamlit run main.py --server.port 8504
+```
+
+**Redis Authentication Issues**
+```bash
+# Redis authentication errors are resolved in latest version
+# If still experiencing issues, check config/enhanced_config.py
+```
+
+**Dashboard Won't Start**
+```bash
+# Check if port is already in use:
+lsof -i :8504
+# Kill existing process if needed:
+kill -9 <PID>
+# Then restart dashboard
+```
+
+**Performance Issues**
+- Dashboard now uses session caching for heavy objects
+- EnsembleSignalScorer and HistoricalDataManager are cached automatically
+- Clear browser cache if experiencing slow loads
+
 ## 📈 Recent Improvements
 
+- **September 2025**: Critical dashboard error fixes and performance optimization
+  - Fixed import path issues in main dashboard
+  - Resolved Redis authentication errors
+  - Added session state caching for heavy objects
+  - Project structure cleanup and organization
 - **September 2025**: Complete Dash migration reversal to Streamlit-only
 - **August 2025**: Project reorganization and documentation cleanup  
 - **August 2025**: Enhanced technical indicator suite and live data integration

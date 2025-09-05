@@ -89,7 +89,8 @@ class WarmDataManager:
             
             # Test connection
             with self.engine.connect() as conn:
-                conn.execute(text("SELECT 1"))
+                result = conn.execute(text("SELECT 1"))
+                result.scalar()
             
             logger.info("PostgreSQL warm data connection established successfully")
             

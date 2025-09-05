@@ -407,12 +407,17 @@ class EnsembleSignalScorer:
         else:
             timeframe_scores['long_term'] = 0.0
         
-        # Calculate weighted timeframe score
+        # Calculate weighted timeframe score with NaN safeguards
         weighted_score = sum(
             score * self.timeframe_weights[timeframe] 
             for timeframe, score in timeframe_scores.items()
+            if not np.isnan(score) and np.isfinite(score)
         )
         
+        # Final safeguard
+        if np.isnan(weighted_score) or not np.isfinite(weighted_score):
+            weighted_score = 0.0
+            
         return weighted_score
     
     def _calculate_momentum_score(self, data: pd.DataFrame) -> float:
@@ -478,13 +483,25 @@ class EnsembleSignalScorer:
     
     def _calculate_composite_metrics(self, contributions: List[SignalContribution], 
                                    timeframe_score: float) -> Tuple[float, SignalDirection, float]:
-        """Calculate composite score, direction, and strength"""
+        """Calculate composite score, direction, and strength with NaN safeguards"""
         
-        # Base ensemble score from individual contributions
-        base_score = sum(contrib.weighted_contribution for contrib in contributions)
+        # Base ensemble score from individual contributions with NaN safeguards
+        valid_contributions = [contrib.weighted_contribution for contrib in contributions 
+                             if not np.isnan(contrib.weighted_contribution) and np.isfinite(contrib.weighted_contribution)]
+        base_score = sum(valid_contributions) if valid_contributions else 0.0
         
-        # Incorporate timeframe analysis
+        # Safeguard timeframe score
+        timeframe_score = 0.0 if np.isnan(timeframe_score) or not np.isfinite(timeframe_score) else timeframe_score
+        
+        # Incorporate timeframe analysis with bounds checking
         composite_score = base_score * 0.7 + timeframe_score * 0.3
+        
+        # Final NaN check and bounds
+        if np.isnan(composite_score) or not np.isfinite(composite_score):
+            composite_score = 0.0
+        
+        # Clamp to reasonable bounds to prevent extreme values
+        composite_score = max(-2.0, min(2.0, composite_score))
         
         # Determine direction and strength
         abs_score = abs(composite_score)

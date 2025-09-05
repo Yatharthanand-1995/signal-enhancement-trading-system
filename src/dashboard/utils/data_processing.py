@@ -21,8 +21,7 @@ class DataProcessor:
         self.config = config or {}
         self.cache_enabled = self.config.get('cache_enabled', True)
         
-    @lru_cache(maxsize=128)
-    def process_signals_data(self, data_hash: str, signals_df: pd.DataFrame) -> pd.DataFrame:
+    def process_signals_data(self, signals_df: pd.DataFrame, cache_key: str = None) -> pd.DataFrame:
         """
         Process signals data for dashboard display
         Cached for performance
